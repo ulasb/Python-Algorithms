@@ -1,4 +1,5 @@
 import argparse
+import unittest
 
 def simple_paren_count(parens: str) -> int:
     '''
@@ -28,6 +29,35 @@ def find_first_basement_entry(parens: str) -> int:
             return i + 1
     return -1
 
+
+class TestParenthesesFloorCounter(unittest.TestCase):
+    def test_floor_zero(self):
+        """Test cases that should result in floor 0"""
+        self.assertEqual(simple_paren_count("(())"), 0)
+        self.assertEqual(simple_paren_count("()()"), 0)
+
+    def test_floor_three(self):
+        """Test cases that should result in floor 3"""
+        self.assertEqual(simple_paren_count("((("), 3)
+        self.assertEqual(simple_paren_count("(()(()("), 3)
+        self.assertEqual(simple_paren_count("))((((("), 3)
+
+    def test_floor_minus_one(self):
+        """Test cases that should result in floor -1"""
+        self.assertEqual(simple_paren_count("())"), -1)
+        self.assertEqual(simple_paren_count("))("), -1)
+
+    def test_floor_minus_three(self):
+        """Test cases that should result in floor -3"""
+        self.assertEqual(simple_paren_count(")))"), -3)
+        self.assertEqual(simple_paren_count(")())())"), -3)
+
+    def test_first_basement_entry(self):
+        """Test cases for finding the first time floor reaches -1"""
+        self.assertEqual(find_first_basement_entry(")"), 1)
+        self.assertEqual(find_first_basement_entry("()())"), 5)
+
+
 def main():
     parser = argparse.ArgumentParser(description='Advent of Code Day 1: Parentheses Floor Counter')
     parser.add_argument('input_file', nargs='?', default='input.txt',
@@ -42,4 +72,7 @@ def main():
     print(f"First basement entry: {first_basement_entry}")
 
 if __name__ == '__main__':
+    # Run unit tests
+    unittest.main(argv=[''], exit=False, verbosity=2)
+    # Run main program
     main()
