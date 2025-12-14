@@ -1,3 +1,5 @@
+import argparse
+
 def simple_paren_count(parens: str) -> int:
     '''
     Part 1:
@@ -27,7 +29,12 @@ def find_first_basement_entry(parens: str) -> int:
     return -1
 
 def main():
-    with open('input.txt', 'r') as file:
+    parser = argparse.ArgumentParser(description='Advent of Code Day 1: Parentheses Floor Counter')
+    parser.add_argument('input_file', nargs='?', default='input.txt',
+                       help='Input file containing parentheses (default: input.txt)')
+    args = parser.parse_args()
+
+    with open(args.input_file, 'r') as file:
         parens = file.read().strip()
         first_basement_entry = find_first_basement_entry(parens)
         final_floor = simple_paren_count(parens)
