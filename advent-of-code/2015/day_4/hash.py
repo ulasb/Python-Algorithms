@@ -47,7 +47,7 @@ class TestFindSmallestSuffix(unittest.TestCase):
         self.assertEqual(result, 1048970)
 
     def test_simple_case_one_zero(self):
-        """Test with 1 zero requirement - should find a small number quickly"""
+        """Test with 1 zero requirement"""
         result = find_smallest_suffix("test", 1)
         self.assertNotEqual(result, -1)
         self.assertGreaterEqual(result, 0)
