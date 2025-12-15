@@ -1,24 +1,32 @@
 import argparse
+import sys
 import unittest
+
+
+def validate_input(parens: str) -> bool:
+    """
+    Validate that input contains only parentheses characters.
+    """
+    return all(char in '()' for char in parens)
+
 
 def simple_paren_count(parens: str) -> int:
     '''
     Part 1:
     Simply count the number of times the parens are opened and closed.
     '''
-    current_floor = 0
-    for char in parens:
-        if char == '(':
-            current_floor += 1
-        elif char == ')':
-            current_floor -= 1
-    return current_floor
+    if not validate_input(parens):
+        raise ValueError("Input must contain only '(' and ')' characters")
+    # More efficient: use count() method
+    return parens.count('(') - parens.count(')')
 
 def find_first_basement_entry(parens: str) -> int:
     '''
     Part 2:
     Find the first time the floor is -1.
     '''
+    if not validate_input(parens):
+        raise ValueError("Input must contain only '(' and ')' characters")
     current_floor = 0
     for i, char in enumerate(parens):
         if char == '(':
@@ -57,6 +65,27 @@ class TestParenthesesFloorCounter(unittest.TestCase):
         self.assertEqual(find_first_basement_entry(")"), 1)
         self.assertEqual(find_first_basement_entry("()())"), 5)
 
+    def test_edge_cases(self):
+        """Test edge cases"""
+        # Empty string
+        self.assertEqual(simple_paren_count(""), 0)
+        self.assertEqual(find_first_basement_entry(""), -1)
+
+        # Only opening parentheses
+        self.assertEqual(simple_paren_count("((("), 3)
+        self.assertEqual(find_first_basement_entry("((("), -1)
+
+        # Only closing parentheses
+        self.assertEqual(simple_paren_count(")))"), -3)
+        self.assertEqual(find_first_basement_entry(")))"), 1)
+
+    def test_input_validation(self):
+        """Test input validation"""
+        with self.assertRaises(ValueError):
+            simple_paren_count("(()a)")
+        with self.assertRaises(ValueError):
+            find_first_basement_entry("(1)")
+
 
 def main():
     parser = argparse.ArgumentParser(description='Advent of Code Day 1: Parentheses Floor Counter')
@@ -64,12 +93,30 @@ def main():
                        help='Input file containing parentheses (default: input.txt)')
     args = parser.parse_args()
 
-    with open(args.input_file, 'r') as file:
-        parens = file.read().strip()
+    try:
+        with open(args.input_file, 'r') as file:
+            parens = file.read().strip()
+
+        # Validate input
+        if not validate_input(parens):
+            print("Error: Input file must contain only '(' and ')' characters", file=sys.stderr)
+            sys.exit(1)
+
         first_basement_entry = find_first_basement_entry(parens)
         final_floor = simple_paren_count(parens)
-    print(f"Final floor: {final_floor}")
-    print(f"First basement entry: {first_basement_entry}")
+
+        print(f"Final floor: {final_floor}")
+        print(f"First basement entry: {first_basement_entry}")
+
+    except FileNotFoundError:
+        print(f"Error: File '{args.input_file}' not found", file=sys.stderr)
+        sys.exit(1)
+    except ValueError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    except Exception as e:
+        print(f"Unexpected error: {e}", file=sys.stderr)
+        sys.exit(1)
 
 if __name__ == '__main__':
     # Run unit tests
