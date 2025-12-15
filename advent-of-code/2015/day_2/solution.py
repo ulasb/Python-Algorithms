@@ -9,23 +9,53 @@ Each line contains three dimensions separated by 'x'.
 import sys
 import argparse
 import unittest
+import cProfile
+import pstats
+from typing import List, Tuple
+
+# Constants
+EXPECTED_DIMENSIONS = 3
+DOUBLE_FACTOR = 2
+MAX_REASONABLE_DIMENSION = 10000  # Sanity check for dimension values
 
 
-def read_present_dimensions(filename):
+def validate_dimensions(dimensions: List[int], line_num: int, line: str) -> bool:
+    """
+    Validate that dimensions are reasonable positive integers.
+
+    Args:
+        dimensions: List of dimension values
+        line_num: Line number for error reporting
+        line: Original line content for error reporting
+
+    Returns:
+        True if valid, False otherwise
+    """
+    for i, dim in enumerate(dimensions):
+        if dim <= 0:
+            print(f"Warning: Line {line_num} contains non-positive dimension {dim} at position {i+1}: {line}")
+            return False
+        if dim > MAX_REASONABLE_DIMENSION:
+            print(f"Warning: Line {line_num} contains unreasonably large dimension {dim} at position {i+1}: {line}")
+            return False
+    return True
+
+
+def read_present_dimensions(filename: str) -> List[List[int]]:
     """
     Read present dimensions from a file.
 
     Args:
-        filename (str): Path to the input file
+        filename: Path to the input file
 
     Returns:
-        list: List of lists, where each inner list contains three integers
-              representing the dimensions of a present
+        List of lists, where each inner list contains three integers
+        representing the dimensions of a present (sorted in ascending order)
     """
     presents = []
 
     try:
-        with open(filename, 'r') as file:
+        with open(filename, 'r', encoding='utf-8') as file:
             for line_num, line in enumerate(file, 1):
                 # Remove whitespace and split by 'x'
                 line = line.strip()
@@ -34,55 +64,78 @@ def read_present_dimensions(filename):
 
                 # Split by 'x' and convert to integers
                 try:
-                    dimensions = [int(dim) for dim in line.split('x')]
-                    dimensions.sort()
-                    if len(dimensions) != 3:
-                        print(f"Warning: Line {line_num} does not contain exactly 3 dimensions: {line}")
+                    parts = line.split('x')
+                    if len(parts) != EXPECTED_DIMENSIONS:
+                        print(f"Warning: Line {line_num} does not contain exactly {EXPECTED_DIMENSIONS} dimensions: {line}")
                         continue
+
+                    dimensions = [int(dim) for dim in parts]
+                    if not validate_dimensions(dimensions, line_num, line):
+                        continue
+                    dimensions.sort()
                     presents.append(dimensions)
                 except ValueError as e:
                     print(f"Error on line {line_num}: Could not parse dimensions from '{line}' - {e}")
+                    continue
+                except Exception as e:
+                    print(f"Unexpected error on line {line_num}: {e}")
                     continue
 
     except FileNotFoundError:
         print(f"Error: File '{filename}' not found.")
         sys.exit(1)
+    except PermissionError:
+        print(f"Error: Permission denied when trying to read '{filename}'.")
+        sys.exit(1)
+    except UnicodeDecodeError:
+        print(f"Error: File '{filename}' contains invalid UTF-8 characters.")
+        sys.exit(1)
     except Exception as e:
-        print(f"Error reading file '{filename}': {e}")
+        print(f"Unexpected error reading file '{filename}': {e}")
         sys.exit(1)
 
     return presents
 
-def get_ribbon_length(presents):
+def get_ribbon_length(presents: List[List[int]]) -> int:
     """
     Calculate the length of ribbon needed for a list of presents.
+
+    Args:
+        presents: List of present dimensions, each as a sorted list of 3 integers
+
+    Returns:
+        Total ribbon length needed (wrap + bow)
     """
-    total_ribbon_length = 0
-    for p in presents:
-        #Bow
-        total_ribbon_length += p[0] * p[1] * p[2]
-        #Wrap - As the list is sorted, we can just take the first two
-        total_ribbon_length += 2 * p[0] + 2 * p[1]
-    return total_ribbon_length
+    return sum(
+        # Bow: volume of present
+        p[0] * p[1] * p[2] +
+        # Wrap: shortest distance around sides (first two dimensions after sorting)
+        DOUBLE_FACTOR * p[0] + DOUBLE_FACTOR * p[1]
+        for p in presents
+    )
         
 
-def get_total_wrapping_paper(presents):
+def get_total_wrapping_paper(presents: List[List[int]]) -> int:
     """
     Calculate the total wrapping paper required for a list of presents.
+
+    Args:
+        presents: List of present dimensions, each as a sorted list of 3 integers
+
+    Returns:
+        Total square feet of wrapping paper needed
     """
-    total_wrapping_paper = 0
-    for p in presents:
-        # Total area
-        area1 = p[0]*p[1]
-        area2 = p[1]*p[2]
-        area3 = p[0]*p[2]
-        total_wrapping_paper += 2*area1 + 2*area2 + 2*area3
-        # Slack (as the list is sorted, we can just take the first item)
-        total_wrapping_paper += area1
-    return total_wrapping_paper
+    def calculate_paper_for_present(p: List[int]) -> int:
+        """Calculate wrapping paper needed for a single present."""
+        # Areas of all three faces
+        area1, area2, area3 = p[0]*p[1], p[1]*p[2], p[0]*p[2]
+        # Total surface area (double each face) plus slack (smallest face)
+        return DOUBLE_FACTOR*area1 + DOUBLE_FACTOR*area2 + DOUBLE_FACTOR*area3 + area1
+
+    return sum(calculate_paper_for_present(p) for p in presents)
 
 
-def main():
+def main() -> None:
     """
     Main function to handle command line arguments and process the input file.
     """
@@ -95,40 +148,62 @@ def main():
         default='input.txt',
         help='Path to input file (default: input.txt)'
     )
+    parser.add_argument(
+        '--profile',
+        action='store_true',
+        help='Enable performance profiling'
+    )
 
     args = parser.parse_args()
 
-    # Read the present dimensions
-    presents = read_present_dimensions(args.input_file)
-    print(f"Successfully read {len(presents)} presents from '{args.input_file}'")
-    total_wrapping_paper = get_total_wrapping_paper(presents)
-    print(f"Total wrapping paper needed {total_wrapping_paper}")
-    total_ribbon_length = get_ribbon_length(presents)
-    print(f"Total ribbon length needed {total_ribbon_length}")
+    def run_calculations():
+        """Run the main calculations - extracted for profiling."""
+        # Read the present dimensions
+        presents = read_present_dimensions(args.input_file)
+        print(f"Successfully read {len(presents)} presents from '{args.input_file}'")
+
+        # Calculate wrapping paper and ribbon
+        total_wrapping_paper = get_total_wrapping_paper(presents)
+        total_ribbon_length = get_ribbon_length(presents)
+
+        print(f"Total wrapping paper needed {total_wrapping_paper}")
+        print(f"Total ribbon length needed {total_ribbon_length}")
+
+    if args.profile:
+        print("Running with performance profiling enabled...")
+        profiler = cProfile.Profile()
+        profiler.enable()
+        run_calculations()
+        profiler.disable()
+
+        # Print profiling statistics
+        stats = pstats.Stats(profiler)
+        stats.sort_stats('cumulative')
+        print("\n=== Performance Profile (Top 10 functions by cumulative time) ===")
+        stats.print_stats(10)
+    else:
+        run_calculations()
 
 
 class TestWrappingPaper(unittest.TestCase):
-    """Test cases for the get_total_wrapping_paper function."""
+    """Test cases for the wrapping paper and ribbon calculations."""
 
-    def test_present_2x3x4(self):
-        """Test wrapping paper calculation for a present with dimensions 2x3x4."""
-        presents = [[2, 3, 4]]
-        result = get_total_wrapping_paper(presents)
-        # Areas: 2*3=6, 3*4=12, 2*4=8
-        # Total wrapping paper: 2*6 + 2*12 + 2*8 = 52
-        # Slack: min(6, 12, 8) = 6
-        # Total: 52 + 6 = 58
-        self.assertEqual(result, 58)
+    def assert_wrapping_paper_calculation(self, dimensions: List[int], expected: int, description: str):
+        """Helper method to test wrapping paper calculations."""
+        with self.subTest(dimensions=dimensions, expected=expected):
+            result = get_total_wrapping_paper([dimensions])
+            self.assertEqual(result, expected, f"Failed for {description}")
 
-    def test_present_1x1x10(self):
-        """Test wrapping paper calculation for a present with dimensions 1x1x10."""
-        presents = [[1, 1, 10]]
-        result = get_total_wrapping_paper(presents)
-        # Areas: 1*1=1, 1*10=10, 1*10=10
-        # Total wrapping paper: 2*1 + 2*10 + 2*10 = 42
-        # Slack: min(1, 10, 10) = 1
-        # Total: 42 + 1 = 43
-        self.assertEqual(result, 43)
+    def assert_ribbon_calculation(self, dimensions: List[int], expected: int, description: str):
+        """Helper method to test ribbon calculations."""
+        with self.subTest(dimensions=dimensions, expected=expected):
+            result = get_ribbon_length([dimensions])
+            self.assertEqual(result, expected, f"Failed for {description}")
+
+    def test_wrapping_paper_calculations(self):
+        """Test wrapping paper calculations for various present dimensions."""
+        self.assert_wrapping_paper_calculation([2, 3, 4], 58, "2x3x4 present")
+        self.assert_wrapping_paper_calculation([1, 1, 10], 43, "1x1x10 present")
 
     def test_multiple_presents(self):
         """Test wrapping paper calculation for multiple presents."""
@@ -143,23 +218,10 @@ class TestWrappingPaper(unittest.TestCase):
         result = get_total_wrapping_paper(presents)
         self.assertEqual(result, 0)
 
-    def test_ribbon_present_2x3x4(self):
-        """Test ribbon length calculation for a present with dimensions 2x3x4."""
-        presents = [[2, 3, 4]]
-        result = get_ribbon_length(presents)
-        # Wrap: 2+2+3+3 = 10 feet (shortest distance around sides)
-        # Bow: 2*3*4 = 24 feet (volume)
-        # Total: 10 + 24 = 34 feet
-        self.assertEqual(result, 34)
-
-    def test_ribbon_present_1x1x10(self):
-        """Test ribbon length calculation for a present with dimensions 1x1x10."""
-        presents = [[1, 1, 10]]
-        result = get_ribbon_length(presents)
-        # Wrap: 1+1+1+1 = 4 feet (shortest distance around sides)
-        # Bow: 1*1*10 = 10 feet (volume)
-        # Total: 4 + 10 = 14 feet
-        self.assertEqual(result, 14)
+    def test_ribbon_calculations(self):
+        """Test ribbon length calculations for various present dimensions."""
+        self.assert_ribbon_calculation([2, 3, 4], 34, "2x3x4 present")
+        self.assert_ribbon_calculation([1, 1, 10], 14, "1x1x10 present")
 
     def test_ribbon_multiple_presents(self):
         """Test ribbon length calculation for multiple presents."""
