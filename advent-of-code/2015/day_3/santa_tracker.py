@@ -4,12 +4,25 @@ Santa Location Tracker for Advent of Code 2015 Day 3
 
 This script tracks Santa's movement based on directional instructions
 and counts how many times each location is visited.
+
+Part 1: Single Santa following all directions
+Part 2: Santa and Robot Santa alternating directions
 """
 
 import sys
 import unittest
 from collections import defaultdict
 from typing import Dict, Tuple
+
+# Direction mappings as module constants
+DIRECTION_MAP = {
+    '^': (0, 1),   # up
+    'v': (0, -1),  # down
+    '>': (1, 0),   # right
+    '<': (-1, 0)   # left
+}
+
+START_POSITION = (0, 0)
 
 
 def track_santa_visits(directions: str) -> Dict[Tuple[int, int], int]:
@@ -22,32 +35,23 @@ def track_santa_visits(directions: str) -> Dict[Tuple[int, int], int]:
     Returns:
         Dictionary mapping (x, y) coordinates to visit count
     """
-    # Start at origin (0, 0)
-    x, y = 0, 0
+    x, y = START_POSITION
     visits = defaultdict(int)
 
     # Count initial position
     visits[(x, y)] = 1
 
-    # Direction mappings: character -> (dx, dy)
-    direction_map = {
-        '^': (0, 1),   # up
-        'v': (0, -1),  # down
-        '>': (1, 0),   # right
-        '<': (-1, 0)   # left
-    }
-
     # Process each direction
     for direction in directions:
-        if direction in direction_map:
-            dx, dy = direction_map[direction]
+        if direction in DIRECTION_MAP:
+            dx, dy = DIRECTION_MAP[direction]
             x += dx
             y += dy
             visits[(x, y)] += 1
         else:
             print(f"Warning: Unknown direction '{direction}' ignored", file=sys.stderr)
 
-    return dict(visits)
+    return visits
 
 
 def track_santa_and_robot_santa(directions: str) -> int:
@@ -62,25 +66,16 @@ def track_santa_and_robot_santa(directions: str) -> int:
     Returns:
         Number of unique locations visited by either Santa
     """
-    # Start both at origin (0, 0)
-    santa_x, santa_y = 0, 0
-    robot_x, robot_y = 0, 0
+    santa_x, santa_y = START_POSITION
+    robot_x, robot_y = START_POSITION
 
     # Use a set to track unique locations visited
-    visited = {(0, 0)}
-
-    # Direction mappings: character -> (dx, dy)
-    direction_map = {
-        '^': (0, 1),   # up
-        'v': (0, -1),  # down
-        '>': (1, 0),   # right
-        '<': (-1, 0)   # left
-    }
+    visited = {START_POSITION}
 
     # Process each direction, alternating between Santa and Robot Santa
     for i, direction in enumerate(directions):
-        if direction in direction_map:
-            dx, dy = direction_map[direction]
+        if direction in DIRECTION_MAP:
+            dx, dy = DIRECTION_MAP[direction]
 
             if i % 2 == 0:
                 # Santa's turn (even indices: 0, 2, 4...)
@@ -162,13 +157,6 @@ class TestSantaTracker(unittest.TestCase):
         # Santa: ^ -> (0,1), v -> (0,0)
         # Robo-Santa: > -> (1,0), < -> (0,0)
         self.assertEqual(result, 3)  # (0,0), (0,1), (1,0)
-
-    def test_robot_santa_long_alternating_path(self):
-        """Test that ^v^v^v^v^v now delivers presents to 11 houses, with Santa going one direction and Robo-Santa going the other."""
-        result = track_santa_and_robot_santa("^v^v^v^v^v")
-        # Santa: positions 0,2,4,6,8 -> ^ ^ ^ ^ ^ -> (0,1), (0,2), (0,3), (0,4), (0,5)
-        # Robo-Santa: positions 1,3,5,7,9 -> v v v v v -> (0,-1), (0,-2), (0,-3), (0,-4), (0,-5)
-        self.assertEqual(result, 11)  # 5 Santa houses + 5 Robo-Santa houses + 1 shared start
 
     def test_robot_santa_long_alternating_path(self):
         """Test that ^v^v^v^v^v now delivers presents to 11 houses, with Santa going one direction and Robo-Santa going the other."""
