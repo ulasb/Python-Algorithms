@@ -208,58 +208,6 @@ class DistanceGraph:
         num_distances = sum(len(distances) for distances in self.distances.values()) // 2
         return f"DistanceGraph: {len(self.cities)} cities, {num_distances} unique distances"
 
-def solve_tsp_from_global_data() -> Tuple[Optional[int], Optional[int]]:
-    """
-    Legacy function for backward compatibility.
-
-    Uses global DISTANCES and CITIES variables to solve TSP.
-    Prefer using DistanceGraph class for new code.
-    """
-    if not CITIES:
-        print("No cities loaded!")
-        return None, None
-
-    # Create a DistanceGraph from global data
-    graph = DistanceGraph()
-    graph.distances = DISTANCES.copy()
-    graph.cities = CITIES.copy()
-
-    min_dist, max_dist = graph.solve_tsp()
-
-    if min_dist is None or max_dist is None:
-        print("No complete route found - cities may not be fully connected!")
-        return None, None
-    else:
-        print(f"Shortest complete route distance: {min_dist}")
-        print(f"Longest complete route distance: {max_dist}")
-        print(f"Number of cities: {len(CITIES)}")
-
-    return min_dist, max_dist
-
-
-# Legacy function for backward compatibility
-def parse_line(line: str) -> None:
-    """Legacy function - use DistanceGraph.parse_line instead."""
-    global DISTANCES, CITIES
-    graph = DistanceGraph()
-    graph.distances = DISTANCES
-    graph.cities = CITIES
-    graph.parse_line(line)
-
-
-def load_from_file(filename: str) -> None:
-    """Legacy function - use DistanceGraph.load_from_file instead."""
-    global DISTANCES, CITIES
-    graph = DistanceGraph()
-    graph.distances = DISTANCES
-    graph.cities = CITIES
-    graph.load_from_file(filename)
-
-
-def dp_for_visits():
-    """Legacy function - use solve_tsp_from_global_data instead."""
-    return solve_tsp_from_global_data()
-
 
 class TestDistanceReader(unittest.TestCase):
     """Unit tests for the distance reader functionality."""
