@@ -59,10 +59,8 @@ class DistanceGraph:
         distance = int(distance_str)
 
         # Add both directions since distances are bidirectional
-        if city1 not in self.distances:
-            self.distances[city1] = {}
-        if city2 not in self.distances:
-            self.distances[city2] = {}
+        self.distances.setdefault(city1, {})
+        self.distances.setdefault(city2, {})
 
         self.distances[city1][city2] = distance
         self.distances[city2][city1] = distance
