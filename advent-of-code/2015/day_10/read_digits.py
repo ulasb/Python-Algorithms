@@ -62,7 +62,8 @@ def run_tests():
         print("\n🎉 All tests passed!")
     else:
         print("\n❌ Some tests failed!")
-    return all_passed
+        import sys
+        sys.exit(1)
 
 if __name__ == "__main__":
     # Run tests first
