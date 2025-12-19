@@ -13,14 +13,15 @@ def get_reading(input_num: str) -> str:
     if not all(c in digits for c in input_num):
         raise ValueError("Input must contain only digits")
 
-    # Use groupby to group consecutive identical digits
-    # For each group (k=key/digit, g=group), create "count + digit"
+    # Group consecutive identical digits and create the next sequence
     groups = []
     for digit, group in groupby(input_num):
-        count = len(list(group))  # Count how many times this digit repeats
+        # Count how many times this digit appears consecutively
+        count = sum(1 for _ in group)
+        # Format as "count + digit"
         groups.append(f"{count}{digit}")
 
-    return ''.join(groups)
+    return "".join(groups)
 
 
 def run_sequence(start: str, steps: int) -> str:
