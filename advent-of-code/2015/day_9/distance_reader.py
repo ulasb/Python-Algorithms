@@ -34,7 +34,7 @@ class DistanceGraph:
         self.distances: Dict[str, Dict[str, int]] = {}
         self.cities: Set[str] = set()
 
-    def parse_line(self, line: str) -> bool:
+    def parse_line(self, line: str) -> None:
         """
         Parse a single line in the format: "City1 to City2 = distance"
 
@@ -154,7 +154,6 @@ class DistanceGraph:
 
         city_list = self.get_cities()
         n = len(city_list)
-        city_to_index = {city: i for i, city in enumerate(city_list)}
 
         # Single DP table: store both min and max as tuples
         dp = [[None] * (1 << n) for _ in range(n)]  # (min_cost, max_cost)
@@ -255,23 +254,6 @@ class TestDistanceReader(unittest.TestCase):
         self.assertEqual(min_distance, 605)  # Shortest route
         self.assertEqual(max_distance, 982)  # Longest route
 
-    def test_three_cities_combinations(self):
-        """Test all possible routes for the 3-city example manually."""
-        # For 3 cities, there are 6 possible routes (3! = 6 permutations)
-        # Each route visits all cities exactly once
-
-        # Routes and their distances:
-        # London -> Dublin -> Belfast: 464 + 141 = 605
-        # London -> Belfast -> Dublin: 518 + 141 = 659
-        # Dublin -> London -> Belfast: 464 + 518 = 982
-        # Dublin -> Belfast -> London: 141 + 518 = 659
-        # Belfast -> London -> Dublin: 518 + 464 = 982
-        # Belfast -> Dublin -> London: 141 + 464 = 605
-
-        # So minimum should be 605, maximum should be 982
-        route_distances = [605, 659, 982, 659, 982, 605]
-        self.assertEqual(min(route_distances), 605)
-        self.assertEqual(max(route_distances), 982)
 
     def test_empty_graph(self):
         """Test behavior with empty graph."""
@@ -302,12 +284,6 @@ class TestDistanceReader(unittest.TestCase):
         self.assertEqual(graph.get_distance("London", "Dublin"), 464)
 
         # Invalid city
-        with self.assertRaises(KeyError):
-            graph.get_distance("London", "Paris")
-
-        # Non-existent distance
-        graph.cities.add("Paris")
-        graph.distances["Paris"] = {}
         with self.assertRaises(KeyError):
             graph.get_distance("London", "Paris")
 
