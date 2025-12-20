@@ -1,6 +1,7 @@
 from itertools import groupby
 from string import digits
 from typing import Dict
+import sys
 
 START_NUMBER = "1113122113"
 PART_1_STEPS = 40
@@ -63,12 +64,14 @@ def run_tests():
         print("\n🎉 All tests passed!")
     else:
         print("\n❌ Some tests failed!")
-        import sys
-        sys.exit(1)
+
+    return all_passed
+
 
 if __name__ == "__main__":
     # Run tests first
-    run_tests()
+    if not run_tests():
+        sys.exit(1)
     print("\n" + "="*50 + "\n")
 
     # Run the main program
