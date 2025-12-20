@@ -30,6 +30,5 @@
 
 ## Overall theme
 These scripts are created as solutions to the Advent of Code problems. Make sure that the scripts are:
-- Performant
-- Follow Python best practices for design, readability, and maintainability
-- Make sure that a human is able to read and understand what the code is doing even if it means sacrificing a small amount of performance.
+- Readable and maintainable: Prioritize clear, understandable code that follows Python best practices. It's acceptable to sacrifice minor performance optimizations for better readability.
+- Performant: Solutions must still be efficient enough to run in a reasonable amount of time.
