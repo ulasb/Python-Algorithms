@@ -1,7 +1,7 @@
 # Project Guide for AI Agents
 
 ## Python Environment
-*   **Python Version:** Use Python > 3.10
+*   **Python Version:** Use Python >= 3.10
 *   **Dependency Tool:** Use `pip` for all dependency management tasks.
 *   **Virtual Environment:** Ensure operations are performed within the active `venv`.
 
