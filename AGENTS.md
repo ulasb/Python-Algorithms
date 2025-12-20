@@ -24,7 +24,7 @@
 * Use comments instead to talk about potential error cases that are very unlikely and therefore we will make assumptions instead of making the code unreadable or unnecessarily long.
 
 ## Project structure
-* Generally try to keep day 1 and day 2 solution separate so if a change in algorithm is required it is easy to understand it end-to-end.
+* Generally try to keep Part 1 and Part 2 solutions separate so if a change in algorithm is required it is easy to understand it end-to-end.
 * Stay with one file unless it grows beyond the level of easy maintainability.
 * Don't create classes needlessly if they don't help with readability and maintainability.
 
