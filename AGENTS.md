@@ -16,7 +16,7 @@
 *   **SQL Injections:** Use parameterized queries for all database interactions. Never use string formatting for SQL.
 
 ## Input/Output Conventions
-* Whenever there is an external file to read, take that as an input parameter and deefault to "input.txt".
+* Whenever there is an external file to read, take that as an input parameter and default to "input.txt".
 * Whenever output needs to be produced, simply print to STDOUT in human readable but succinct format.
 
 ## Error Handling and Logging
