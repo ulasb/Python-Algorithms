@@ -10,7 +10,7 @@ def get_reading(input_num: str) -> str:
     """Generate the next look-and-say sequence iteration."""
     if not input_num:
         return ""
-    if not all(c in digits for c in input_num):
+    if not input_num.isdigit():
         raise ValueError("Input must contain only digits")
 
     # Group consecutive identical digits and create the next sequence
