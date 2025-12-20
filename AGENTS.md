@@ -29,7 +29,7 @@
 * Don't create classes needlessly if they don't help with readability and maintainability.
 
 ## Overall theme
-These scripts are created as solutions to the Advent of Code problems. Make suret that the scripts are:
+These scripts are created as solutions to the Advent of Code problems. Make sure that the scripts are:
 - Performant
 - Follow Python best practices for design, readability, and maintainability
 - Make sure that a human is able to read and understand what the code is doing even if it means sacrificing a small amount of performance.
