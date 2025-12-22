@@ -141,7 +141,7 @@ def find_optimal_arrangement(happiness: DefaultDict[str, DefaultDict[str, int]])
     return max_happiness, best_arrangement
 
 
-def add_yourself(happiness: DefaultDict[str, DefaultDict[str, int]]) -> DefaultDict[str, DefaultDict[str, int]]:
+def add_yourself(happiness: DefaultDict[str, DefaultDict[str, int]]) -> None:
     """
     Add yourself ("me") to the happiness dictionary with zero happiness changes.
 
@@ -150,10 +150,7 @@ def add_yourself(happiness: DefaultDict[str, DefaultDict[str, int]]) -> DefaultD
     sitting next to us.
 
     Args:
-        happiness: Dictionary with happiness changes
-
-    Returns:
-        DefaultDict[str, DefaultDict[str, int]]: Updated happiness dictionary including "me"
+        happiness: Dictionary with happiness changes (modified in-place)
     """
     # Get all existing people
     existing_people = list(happiness.keys())
@@ -163,8 +160,6 @@ def add_yourself(happiness: DefaultDict[str, DefaultDict[str, int]]) -> DefaultD
     for person in existing_people:
         happiness[ME][person] = 0
         happiness[person][ME] = 0
-
-    return happiness
 
 
 def parse_arguments() -> argparse.Namespace:
