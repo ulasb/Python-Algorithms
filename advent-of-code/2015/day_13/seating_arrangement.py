@@ -137,7 +137,7 @@ def find_optimal_arrangement(happiness: DefaultDict[str, DefaultDict[str, int]])
             best_arrangement = arrangement_tuple
 
     elapsed_time = time.time() - start_time
-    logger.info(".2f")
+    logger.info(f"Evaluation took {elapsed_time:.2f}s")
 
     return max_happiness, best_arrangement
 
