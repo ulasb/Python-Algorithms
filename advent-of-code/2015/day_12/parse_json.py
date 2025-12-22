@@ -10,8 +10,9 @@ Part 2: Sum all numbers, ignoring objects that contain "red"
 import json
 import sys
 import os
+import argparse
 import unittest
-from typing import Any, Union
+from typing import Any, Union, Optional
 
 def read_input(filename: str) -> str:
     """
@@ -24,18 +25,17 @@ def read_input(filename: str) -> str:
         The file contents as a string
 
     Raises:
-        SystemExit: If file cannot be read
+        FileNotFoundError: If the file does not exist
+        IOError: If there's an error reading the file
     """
     try:
         with open(filename, 'r', encoding='utf-8') as f:
             content = f.read().strip()
         return content
     except FileNotFoundError:
-        print(f"Error: File '{filename}' not found.")
-        sys.exit(1)
+        raise FileNotFoundError(f"File '{filename}' not found.")
     except Exception as e:
-        print(f"Error reading file: {e}")
-        sys.exit(1)
+        raise IOError(f"Error reading file '{filename}': {e}")
 
 def parse_json(json_string: str) -> Any:
     """
@@ -48,13 +48,12 @@ def parse_json(json_string: str) -> Any:
         Parsed JSON object (dict, list, etc.)
 
     Raises:
-        SystemExit: If JSON is invalid
+        json.JSONDecodeError: If JSON is invalid
     """
     try:
         return json.loads(json_string)
     except json.JSONDecodeError as e:
-        print(f"Error parsing JSON: {e}")
-        sys.exit(1)
+        raise json.JSONDecodeError(f"Error parsing JSON: {e}", e.doc, e.pos)
 
 
 # Constants
@@ -143,36 +142,105 @@ class TestJSONSum(unittest.TestCase):
         self.assertEqual(sum_numbers([1, RED_VALUE, 5], RED_VALUE), 6)
 
 
-def main():
+def main(input_file: Optional[str] = None):
     """Main solution function."""
     # Get the input file path
-    input_file = os.path.join(os.path.dirname(__file__), 'input.txt')
+    if input_file:
+        script_dir = os.path.dirname(__file__)
+        input_file = os.path.join(script_dir, input_file)
+    else:
+        input_file = os.path.join(os.path.dirname(__file__), 'input.txt')
 
-    # Read and parse the input
-    json_string = read_input(input_file)
-    data = parse_json(json_string)
+    try:
+        # Read and parse the input
+        json_string = read_input(input_file)
+        data = parse_json(json_string)
 
-    # Part 1: Sum all numbers
-    part1_result = sum_numbers(data)
-    print(f"Part 1 - Sum of all numbers: {part1_result}")
+        # Part 1: Sum all numbers
+        part1_result = sum_numbers(data)
+        print(f"Part 1 - Sum of all numbers: {part1_result}")
 
-    # Part 2: Sum all numbers, ignoring objects with "red"
-    part2_result = sum_numbers(data, RED_VALUE)
-    print(f"Part 2 - Sum ignoring '{RED_VALUE}' objects: {part2_result}")
+        # Part 2: Sum all numbers, ignoring objects with "red"
+        part2_result = sum_numbers(data, RED_VALUE)
+        print(f"Part 2 - Sum ignoring '{RED_VALUE}' objects: {part2_result}")
 
-def run_tests():
+    except (FileNotFoundError, IOError) as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+    except json.JSONDecodeError as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+
+def run_tests(verbose: bool = False):
     """Run the unit test suite."""
-    print("Running unit tests...")
-    unittest.main(argv=[''], exit=False, verbosity=2)
+    if verbose:
+        print("Running unit tests (verbose mode)...")
+        verbosity = 2
+    else:
+        print("Running unit tests...")
+        verbosity = 0
+
+    unittest.main(argv=[''], exit=False, verbosity=verbosity)
+
+
+def create_parser() -> argparse.ArgumentParser:
+    """Create and configure the argument parser."""
+    parser = argparse.ArgumentParser(
+        description="Advent of Code 2015 - Day 12: JSAbacusFramework.io",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+        epilog="""
+Examples:
+  python parse_json.py              # Run tests then solve both parts
+  python parse_json.py --test-only  # Run only unit tests
+  python parse_json.py --no-tests   # Skip tests, solve only
+  python parse_json.py --verbose    # Run tests with verbose output
+  python parse_json.py --input-file custom.json  # Use custom input file
+        """
+    )
+
+    parser.add_argument(
+        '--test-only',
+        action='store_true',
+        help='Run only the unit tests, do not solve the puzzle'
+    )
+
+    parser.add_argument(
+        '--no-tests',
+        action='store_true',
+        help='Skip running unit tests, solve the puzzle only'
+    )
+
+    parser.add_argument(
+        '-v', '--verbose',
+        action='store_true',
+        help='Enable verbose test output'
+    )
+
+    parser.add_argument(
+        '--input-file',
+        type=str,
+        help='Path to input file (default: input.txt in script directory)'
+    )
+
+    return parser
 
 
 if __name__ == "__main__":
-    # Check for test-only flag
-    if len(sys.argv) > 1 and sys.argv[1] == '--test':
-        run_tests()
+    parser = create_parser()
+    args = parser.parse_args()
+
+    # Validate argument combinations
+    if args.test_only and args.no_tests:
+        parser.error("--test-only and --no-tests cannot be used together")
+
+    if args.test_only:
+        # Run only tests
+        run_tests(verbose=args.verbose)
+    elif args.no_tests:
+        # Skip tests, run only main solution
+        main(input_file=args.input_file)
     else:
-        # Run tests first, then main solution
-        print("Running unit tests...")
-        unittest.main(argv=[''], exit=False, verbosity=0)
+        # Default: Run tests first, then main solution
+        run_tests(verbose=args.verbose)
         print("\n" + "="*50)
-        main()
+        main(input_file=args.input_file)
