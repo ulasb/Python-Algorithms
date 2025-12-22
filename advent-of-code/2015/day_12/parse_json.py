@@ -34,8 +34,8 @@ def read_input(filename: str) -> str:
         return content
     except FileNotFoundError:
         raise FileNotFoundError(f"File '{filename}' not found.")
-    except Exception as e:
-        raise IOError(f"Error reading file '{filename}': {e}")
+    except IOError as e:
+        raise IOError(f"Error reading file '{filename}': {e}") from e
 
 def parse_json(json_string: str) -> Any:
     """
