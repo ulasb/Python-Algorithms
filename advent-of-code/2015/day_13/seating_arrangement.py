@@ -42,43 +42,8 @@ def parse_input(filename: str = DEFAULT_INPUT_FILE) -> DefaultDict[str, DefaultD
         FileNotFoundError: If the input file doesn't exist
         ValueError: If the input file format is invalid
     """
-    happiness = defaultdict(lambda: defaultdict(int))
-
     with open(filename, 'r') as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-
-            # Parse: "Alice would gain 54 happiness units by sitting next to Bob."
-            parts = line.split()
-
-            # Validate line format
-            if len(parts) != 11:
-                raise ValueError(f"Invalid input line format: {line}")
-
-            person1 = parts[0]
-            change = parts[2]  # "gain" or "lose"
-            amount_str = parts[3]
-            person2 = parts[-1].rstrip('.')  # Remove period from last word
-
-            # Validate change type
-            if change not in (GAIN, LOSE):
-                raise ValueError(f"Invalid change type '{change}' in line: {line}")
-
-            # Validate amount
-            try:
-                amount = int(amount_str)
-            except ValueError:
-                raise ValueError(f"Invalid happiness amount '{amount_str}' in line: {line}")
-
-            # Convert "lose" to negative
-            if change == LOSE:
-                amount = -amount
-
-            happiness[person1][person2] = amount
-
-    return happiness
+        return parse_happiness_lines(f)
 
 
 def calculate_total_happiness(arrangement_tuple: Tuple[str, ...], happiness: DefaultDict[str, DefaultDict[str, int]]) -> int:
