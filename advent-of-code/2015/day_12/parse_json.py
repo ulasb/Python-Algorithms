@@ -87,8 +87,8 @@ def sum_numbers(obj: Any, bad_value: Optional[str] = None) -> int:
         for item in obj:
             total += sum_numbers(item, bad_value)
     elif isinstance(obj, (int, float)):
-        # For numbers, add them to the total
-        total += obj
+        # For numbers, add their integer value to the total
+        total += int(obj)
     # Ignore strings, booleans, and null values (implicitly return 0)
 
     return total
