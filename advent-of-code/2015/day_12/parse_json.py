@@ -178,7 +178,7 @@ def run_tests(verbose: bool = False):
         verbosity = 2
     else:
         print("Running unit tests...")
-        verbosity = 0
+        verbosity = 1
 
     unittest.main(argv=[''], exit=False, verbosity=verbosity)
 
