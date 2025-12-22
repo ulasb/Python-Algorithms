@@ -6,15 +6,15 @@ This script finds the optimal seating arrangement that maximizes total happiness
 based on pairwise happiness changes when people sit next to each other.
 """
 
-import sys
 import argparse
 import logging
+import math
+import sys
 import time
+import unittest
 from collections import defaultdict
 from itertools import permutations
-from typing import Dict, List, Tuple, DefaultDict
-from functools import lru_cache
-import unittest
+from typing import DefaultDict, Dict, List, Tuple
 
 # Constants
 ME = "me"
