@@ -60,7 +60,7 @@ def parse_json(json_string: str) -> Any:
 # Constants
 RED_VALUE = "red"
 
-def sum_numbers(obj: Any, bad_value: str = "") -> int:
+def sum_numbers(obj: Any, bad_value: Optional[str] = None) -> int:
     """
     Recursively traverse the JSON object and sum all numbers.
 
@@ -78,7 +78,7 @@ def sum_numbers(obj: Any, bad_value: str = "") -> int:
 
     if isinstance(obj, dict):
         # For dictionaries, check if bad_value is present
-        if bad_value and bad_value in obj.values():
+        if bad_value is not None and bad_value in obj.values():
             return 0  # Ignore this entire dictionary
         # Otherwise, recurse through all values
         for value in obj.values():
