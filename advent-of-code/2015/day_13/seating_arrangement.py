@@ -54,7 +54,7 @@ def parse_input(filename: str = DEFAULT_INPUT_FILE) -> DefaultDict[str, DefaultD
             parts = line.split()
 
             # Validate line format
-            if len(parts) < 11:
+            if len(parts) != 11:
                 raise ValueError(f"Invalid input line format: {line}")
 
             person1 = parts[0]
@@ -119,21 +119,42 @@ def find_optimal_arrangement(happiness: DefaultDict[str, DefaultDict[str, int]])
     Returns:
         Tuple[int, Tuple[str, ...]]: (max_happiness, best_arrangement)
     """
-    people = list(happiness.keys())
+    people = sorted(list(happiness.keys()))  # Sort for consistent ordering
     n = len(people)
     max_happiness = float('-inf')
     best_arrangement = None
 
-    logger.info(f"Evaluating {n} people ({n}! = {math.factorial(n)} permutations)")
+    # For circular arrangements, we can fix one person's position
+    # This reduces complexity from n! to (n-1)! since rotations are equivalent
+    if n == 0:
+        num_arrangements = 1  # Empty arrangement
+    else:
+        num_arrangements = math.factorial(n - 1) if n > 1 else 1
+
+    logger.info(f"Evaluating {n} people ({num_arrangements} unique circular arrangements)")
 
     start_time = time.time()
 
-    # Try all permutations of seating arrangements
-    for arrangement in permutations(people):
-        current_happiness = calculate_total_happiness(arrangement, happiness)
-        if current_happiness > max_happiness:
-            max_happiness = current_happiness
-            best_arrangement = arrangement_tuple
+    if n == 0:
+        # Handle empty case
+        max_happiness = 0
+        best_arrangement = ()
+    elif n == 1:
+        # Single person case
+        arrangement = tuple(people)
+        max_happiness = calculate_total_happiness(arrangement, happiness)
+        best_arrangement = arrangement
+    else:
+        # For n >= 2, fix the first person and permute the rest
+        fixed_person = people[0]
+        remaining_people = people[1:]
+
+        for perm in permutations(remaining_people):
+            arrangement = (fixed_person,) + perm
+            current_happiness = calculate_total_happiness(arrangement, happiness)
+            if current_happiness > max_happiness:
+                max_happiness = current_happiness
+                best_arrangement = arrangement
 
     elapsed_time = time.time() - start_time
     logger.info(f"Evaluation took {elapsed_time:.2f}s")
@@ -218,7 +239,7 @@ def parse_happiness_lines(lines: List[str]) -> DefaultDict[str, DefaultDict[str,
         parts = line.split()
 
         # Validate line format
-        if len(parts) < 11:
+        if len(parts) != 11:
             raise ValueError(f"Invalid input line format: {line}")
 
         person1 = parts[0]
@@ -291,19 +312,19 @@ class TestSeatingArrangement(unittest.TestCase):
         self.assertIn("Bob", happiness)
 
         # Add "me"
-        updated_happiness = add_yourself(happiness)
+        add_yourself(happiness)
 
         # Should now have 3 people
-        self.assertEqual(len(updated_happiness), 3)
-        self.assertIn("me", updated_happiness)
+        self.assertEqual(len(happiness), 3)
+        self.assertIn("me", happiness)
 
         # Check that "me" has zero happiness with everyone
-        self.assertEqual(updated_happiness["me"]["Alice"], 0)
-        self.assertEqual(updated_happiness["me"]["Bob"], 0)
+        self.assertEqual(happiness["me"]["Alice"], 0)
+        self.assertEqual(happiness["me"]["Bob"], 0)
 
         # Check that everyone has zero happiness with "me"
-        self.assertEqual(updated_happiness["Alice"]["me"], 0)
-        self.assertEqual(updated_happiness["Bob"]["me"], 0)
+        self.assertEqual(happiness["Alice"]["me"], 0)
+        self.assertEqual(happiness["Bob"]["me"], 0)
 
     def test_parse_happiness_lines_invalid_format(self):
         """Test that parse_happiness_lines raises ValueError for invalid input."""
@@ -370,14 +391,20 @@ def main(args: argparse.Namespace) -> None:
 
         logger.info("Finding optimal arrangement for Part 1...")
         max_happiness, best_arrangement = find_optimal_arrangement(happiness)
-        logger.info(f"Optimal seating arrangement: {' -> '.join(best_arrangement)} -> {best_arrangement[0]}")
+        arrangement_str = ' -> '.join(best_arrangement)
+        if best_arrangement:
+            arrangement_str += f" -> {best_arrangement[0]}"
+        logger.info(f"Optimal seating arrangement: {arrangement_str}")
         logger.info(f"Maximum total happiness: {max_happiness}")
 
         # Part 2: Add ourselves - with no happiness change for everyone
         logger.info(f"Adding '{ME}' to the arrangement for Part 2...")
-        happiness = add_yourself(happiness)
+        add_yourself(happiness)
         max_happiness, best_arrangement = find_optimal_arrangement(happiness)
-        logger.info(f"Optimal seating arrangement (including {ME}): {' -> '.join(best_arrangement)} -> {best_arrangement[0]}")
+        arrangement_str = ' -> '.join(best_arrangement)
+        if best_arrangement:
+            arrangement_str += f" -> {best_arrangement[0]}"
+        logger.info(f"Optimal seating arrangement (including {ME}): {arrangement_str}")
         logger.info(f"Maximum total happiness (including {ME}): {max_happiness}")
 
     except FileNotFoundError:
