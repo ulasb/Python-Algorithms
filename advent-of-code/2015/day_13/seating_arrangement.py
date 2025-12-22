@@ -124,7 +124,7 @@ def find_optimal_arrangement(happiness: DefaultDict[str, DefaultDict[str, int]])
     max_happiness = float('-inf')
     best_arrangement = None
 
-    logger.info(f"Evaluating {n} people ({n}! = {len(list(permutations(people)))} permutations)")
+    logger.info(f"Evaluating {n} people ({n}! = {math.factorial(n)} permutations)")
 
     start_time = time.time()
 
