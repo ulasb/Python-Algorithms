@@ -130,8 +130,7 @@ def find_optimal_arrangement(happiness: DefaultDict[str, DefaultDict[str, int]])
 
     # Try all permutations of seating arrangements
     for arrangement in permutations(people):
-        arrangement_tuple = tuple(arrangement)  # Convert to tuple for caching
-        current_happiness = calculate_total_happiness(arrangement_tuple, happiness)
+        current_happiness = calculate_total_happiness(arrangement, happiness)
         if current_happiness > max_happiness:
             max_happiness = current_happiness
             best_arrangement = arrangement_tuple
