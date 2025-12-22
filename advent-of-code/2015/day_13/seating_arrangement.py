@@ -20,7 +20,6 @@ from typing import DefaultDict, Dict, List, Tuple
 ME = "me"
 GAIN = "gain"
 LOSE = "lose"
-HAPPINESS_UNITS = "happiness units"
 DEFAULT_INPUT_FILE = "input.txt"
 
 # Configure logging
@@ -60,18 +59,28 @@ def calculate_total_happiness(arrangement_tuple: Tuple[str, ...], happiness: Def
     total = 0
     n = len(arrangement_tuple)
 
-    for i in range(n):
-        # Each person has two neighbors in a circle
-        left = arrangement_tuple[i-1]  # Previous person (wraps around)
-        right = arrangement_tuple[(i+1) % n]  # Next person
+    if n == 0:
+        return 0  # No people, no happiness
+    elif n == 1:
+        return 0  # Single person has no neighbors
+    elif n == 2:
+        # Each person has one neighbor (the other person)
+        person1, person2 = arrangement_tuple
+        total += happiness[person1][person2]  # person1's happiness with person2
+        total += happiness[person2][person1]  # person2's happiness with person1
+        return total
+    else:
+        # For n >= 3, each person has two distinct neighbors in a circle
+        for i in range(n):
+            left = arrangement_tuple[i-1]  # Previous person (wraps around)
+            right = arrangement_tuple[(i+1) % n]  # Next person
+            current = arrangement_tuple[i]
 
-        current = arrangement_tuple[i]
+            # Add happiness for both directions
+            total += happiness[current][left]
+            total += happiness[current][right]
 
-        # Add happiness for both directions
-        total += happiness[current][left]
-        total += happiness[current][right]
-
-    return total
+        return total
 
 
 def find_optimal_arrangement(happiness: DefaultDict[str, DefaultDict[str, int]]) -> Tuple[int, Tuple[str, ...]]:
@@ -316,8 +325,8 @@ class TestSeatingArrangement(unittest.TestCase):
         happiness = defaultdict(lambda: defaultdict(int))
         happiness["Alice"]["Alice"] = 10  # Self-happiness doesn't make sense but test the logic
         arrangement = ("Alice",)
-        # Single person: left=Alice, right=Alice, so 10 + 10 = 20
-        self.assertEqual(calculate_total_happiness(arrangement, happiness), 20)
+        # Single person has no neighbors, so happiness should be 0
+        self.assertEqual(calculate_total_happiness(arrangement, happiness), 0)
 
     def test_find_optimal_with_empty_happiness(self):
         """Test find_optimal_arrangement with empty happiness dictionary."""
@@ -337,10 +346,10 @@ class TestSeatingArrangement(unittest.TestCase):
         happiness = parse_happiness_lines(test_lines)
         arrangement_tuple = ("Alice", "Bob")
 
-        # For a 2-person circular arrangement, each person has the other as both neighbors
-        # So we count: Alice with Bob (54) + Alice with Bob (54) + Bob with Alice (83) + Bob with Alice (83) = 274
+        # For a 2-person arrangement, each person has one neighbor (the other person)
+        # So we count: Alice with Bob (54) + Bob with Alice (83) = 137
         total = calculate_total_happiness(arrangement_tuple, happiness)
-        self.assertEqual(total, 274)
+        self.assertEqual(total, 137)
 
 
 def main(args: argparse.Namespace) -> None:
