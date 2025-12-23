@@ -7,7 +7,11 @@ This script finds the optimal cookie recipe that maximizes score, with optional 
 
 import argparse
 import logging
+import math
+import os
+import re
 import sys
+import tempfile
 import time
 import unittest
 from typing import Dict, Optional, Tuple
@@ -72,8 +76,6 @@ def parse_ingredients(filename: str) -> Dict[str, Ingredient]:
         FileNotFoundError: If the input file doesn't exist
         ValueError: If the input file format is invalid
     """
-    import re
-
     ingredients = {}
 
     try:
@@ -181,9 +183,10 @@ def find_optimal_recipe(ingredients: Dict[str, Ingredient], calorie_target: Opti
     best_score = 0
     best_amounts = {}
 
-    # Calculate total combinations for logging
-    total_combinations = 100 ** (n - 1) if n > 1 else 1
-    logger.info(f"Evaluating {n} ingredients ({total_combinations} combinations)")
+    # Calculate total combinations for logging (stars and bars formula)
+    # Number of ways to distribute 100 teaspoons among n ingredients
+    total_combinations = math.comb(100 + n - 1, n - 1) if n > 1 else 1
+    logger.info(f"Evaluating {n} ingredients ({total_combinations:,} combinations)")
 
     start_time = time.time()
 
@@ -312,9 +315,6 @@ class TestCookieOptimizer(unittest.TestCase):
 
     def test_parse_ingredients(self):
         """Test parsing ingredients from string data."""
-        import tempfile
-        import os
-
         test_data = """Butterscotch: capacity -1, durability -2, flavor 6, texture 3, calories 8
 Cinnamon: capacity 2, durability 3, flavor -2, texture -1, calories 3"""
 
