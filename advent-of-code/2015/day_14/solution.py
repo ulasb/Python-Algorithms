@@ -10,7 +10,6 @@ import argparse
 import logging
 import re
 import sys
-import unittest
 from dataclasses import dataclass
 from typing import List
 
@@ -130,21 +129,16 @@ def read_input_file(filename: str = DEFAULT_INPUT_FILE) -> List[Reindeer]:
     FileNotFoundError
         If the input file doesn't exist
     ValueError
-        If the input file format is invalid
+        If any line in the input file has invalid format
     """
     reindeer_list = []
 
-    try:
-        with open(filename, 'r', encoding='utf-8') as file:
-            for line in file:
-                line = line.strip()
-                if line:  # Skip empty lines
-                    reindeer = parse_reindeer_line(line)
-                    reindeer_list.append(reindeer)
-    except FileNotFoundError:
-        raise FileNotFoundError(f"Input file '{filename}' not found")
-    except Exception as e:
-        raise ValueError(f"Error reading file: {e}")
+    with open(filename, 'r', encoding='utf-8') as file:
+        for line in file:
+            line = line.strip()
+            if line:  # Skip empty lines
+                reindeer = parse_reindeer_line(line)
+                reindeer_list.append(reindeer)
 
     return reindeer_list
 
@@ -174,6 +168,28 @@ def simulate_second(reindeer_list: List[Reindeer], award_points: bool = False) -
                 reindeer.points += 1
 
 
+def run_race_simulation(reindeer_list: List[Reindeer], total_seconds: int, award_points: bool = False) -> None:
+    """
+    Run the race simulation for the specified duration.
+
+    Parameters
+    ----------
+    reindeer_list : List[Reindeer]
+        List of reindeer participating in the race
+    total_seconds : int
+        Duration of the race in seconds
+    award_points : bool, optional
+        Whether to award points to leaders each second (default: False)
+    """
+    # Reset all reindeer to initial state
+    for reindeer in reindeer_list:
+        reindeer.reset()
+
+    # Run simulation
+    for _ in range(total_seconds):
+        simulate_second(reindeer_list, award_points=award_points)
+
+
 def simulate_race(reindeer_list: List[Reindeer], total_seconds: int) -> int:
     """
     Simulate the race for given seconds and return the max distance traveled.
@@ -190,15 +206,7 @@ def simulate_race(reindeer_list: List[Reindeer], total_seconds: int) -> int:
     int
         Maximum distance traveled by any reindeer
     """
-    # Reset all reindeer to initial state
-    for reindeer in reindeer_list:
-        reindeer.reset()
-
-    # Run simulation
-    for _ in range(total_seconds):
-        simulate_second(reindeer_list, award_points=False)
-
-    # Find the maximum distance
+    run_race_simulation(reindeer_list, total_seconds, award_points=False)
     return max(reindeer.distance for reindeer in reindeer_list)
 
 
@@ -218,15 +226,7 @@ def simulate_race_with_points(reindeer_list: List[Reindeer], total_seconds: int)
     int
         Maximum points earned by any reindeer
     """
-    # Reset all reindeer to initial state
-    for reindeer in reindeer_list:
-        reindeer.reset()
-
-    # Run simulation
-    for _ in range(total_seconds):
-        simulate_second(reindeer_list, award_points=True)
-
-    # Find the maximum points
+    run_race_simulation(reindeer_list, total_seconds, award_points=True)
     return max(reindeer.points for reindeer in reindeer_list)
 
 
