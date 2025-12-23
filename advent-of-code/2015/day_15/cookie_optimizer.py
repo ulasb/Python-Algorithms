@@ -84,7 +84,7 @@ def parse_ingredients(filename: str) -> Dict[str, Ingredient]:
                     continue
 
                 # Parse line like: "Sugar: capacity 3, durability 0, flavor 0, texture -3, calories 2"
-                match = re.match(r'(\w+): capacity (-?\d+), durability (-?\d+), flavor (-?\d+), texture (-?\d+), calories (-?\d+)', line)
+                match = re.match(r'(.+?): capacity (-?\d+), durability (-?\d+), flavor (-?\d+), texture (-?\d+), calories (-?\d+)', line)
                 if match:
                     name = match.group(1)
                     capacity = int(match.group(2))
