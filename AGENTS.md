@@ -11,6 +11,7 @@
 ## Code Style
 *   **Formatting:** Use `black` as the auto-formatter. Do not introduce unformatted code.
 *   **Docstrings:** All functions and classes must have clear, concise docstrings following the NumPy style.
+*   Use PEP8 for best practice guidance as well.
 
 ## Security Considerations
 *   **SQL Injections:** Use parameterized queries for all database interactions. Never use string formatting for SQL.
@@ -22,6 +23,8 @@
 ## Error Handling and Logging
 * Keep error handling to a reasonable amount - we're looking for errors to help with development or understanding when there is a problem with the input so action can be taken.
 * Use comments instead to talk about potential error cases that are very unlikely and therefore we will make assumptions instead of making the code unreadable or unnecessarily long.
+* Be specific with exception handling - avoid overly general statements.
+* Let errors flow up to the top level and handle them there as opposed to in functions themselves.
 
 ## Project structure
 * Generally try to keep Part 1 and Part 2 solutions separate so if a change in algorithm is required it is easy to understand it end-to-end.
