@@ -103,11 +103,8 @@ class TestReindeerRace(unittest.TestCase):
         self.assertEqual(max_distance, 16)
 
         # Verify individual distances
-        comet_distance = next(r.distance for r in self.example_reindeer if r.name == "Comet")
-        dancer_distance = next(r.distance for r in self.example_reindeer if r.name == "Dancer")
-
-        self.assertEqual(comet_distance, 14)
-        self.assertEqual(dancer_distance, 16)
+        self.assertEqual(self.comet.distance, 14)
+        self.assertEqual(self.dancer.distance, 16)
 
     def test_part1_example_after_10_seconds(self):
         """Test part 1 example: positions after 10 seconds."""
