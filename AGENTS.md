@@ -35,3 +35,6 @@
 These scripts are created as solutions to the Advent of Code problems. Make sure that the scripts are:
 - Readable and maintainable: Prioritize clear, understandable code that follows Python best practices. It's acceptable to sacrifice minor performance optimizations for better readability.
 - Performant: Solutions must still be efficient enough to run in a reasonable amount of time.
+
+## Licensing
+Mention that code here was created and published by Ulaş Bardak and that we follow Mozilla Public License 2.0 with a high level description of thwat that means.
