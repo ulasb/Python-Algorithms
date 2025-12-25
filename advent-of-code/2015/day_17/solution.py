@@ -40,7 +40,7 @@ def load_containers(filename: str = DEFAULT_INPUT_FILE) -> List[int]:
     ValueError
         If a line in the input file is not a valid integer.
     """
-    with open(filename, "r") as f:
+    with open(filename, "r", encoding="utf-8") as f:
         return [int(line.strip()) for line in f if line.strip()]
 
 
