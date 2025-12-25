@@ -18,11 +18,17 @@ The simulation includes:
 - Real-time FPS monitoring
 """
 
-import pygame
+import pygame  # LGPL 2.1 - https://www.pygame.org
 import random
 import math
 import sys
-import numpy as np
+import numpy as np  # BSD 3-Clause - https://numpy.org
+
+# Third-party library acknowledgments:
+# - Pygame (LGPL 2.1): Graphics, sound, and event handling
+# - NumPy (BSD 3-Clause): Sound synthesis and numerical operations
+# See THIRD_PARTY_LICENSES.md for complete license information
+
 
 # Initialize Pygame
 pygame.init()

@@ -82,6 +82,21 @@ With the requirement that:
 - Original source must be disclosed
 - A copy of the license and copyright notice must be included
 
+### Third-Party Libraries
+
+This software uses the following open-source libraries:
+
+- **Pygame** (LGPL 2.1): Used for graphics, sound, and event handling
+  - Website: https://www.pygame.org
+  - License: https://www.gnu.org/licenses/old-licenses/lgpl-2.1.html
+
+- **NumPy** (BSD 3-Clause): Used for sound synthesis and numerical operations
+  - Website: https://numpy.org
+  - License: Included in THIRD_PARTY_LICENSES.md
+
+For complete third-party license information, see [THIRD_PARTY_LICENSES.md](THIRD_PARTY_LICENSES.md).
+
+
 ## Development
 
 This code follows Python best practices:
