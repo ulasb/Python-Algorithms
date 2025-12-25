@@ -11,6 +11,7 @@ Part 2: Range-based match on specific attributes (cats, trees, pomeranians, gold
 
 import argparse
 import logging
+import operator
 import re
 import sys
 import unittest
@@ -18,6 +19,25 @@ from typing import Dict, List, Optional
 
 # Constants
 DEFAULT_INPUT_FILE = "input.txt"
+TARGET_ATTRIBUTES = {
+    "children": 3,
+    "cats": 7,
+    "samoyeds": 2,
+    "pomeranians": 3,
+    "akitas": 0,
+    "vizslas": 0,
+    "goldfish": 5,
+    "trees": 3,
+    "cars": 2,
+    "perfumes": 1,
+}
+
+PART_2_CHECKS = {
+    "cats": operator.gt,
+    "trees": operator.gt,
+    "pomeranians": operator.lt,
+    "goldfish": operator.lt,
+}
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format="%(levelname)s: %(message)s")
@@ -39,17 +59,6 @@ class Aunt:
         """
         self.name = name
         self.attributes = attributes
-        # Populate specific attributes for convenience (optional, but requested by user initially)
-        self.children = attributes.get("children")
-        self.cats = attributes.get("cats")
-        self.samoyeds = attributes.get("samoyeds")
-        self.pomeranians = attributes.get("pomeranians")
-        self.akitas = attributes.get("akitas")
-        self.vizslas = attributes.get("vizslas")
-        self.goldfish = attributes.get("goldfish")
-        self.trees = attributes.get("trees")
-        self.cars = attributes.get("cars")
-        self.perfumes = attributes.get("perfumes")
 
     def __repr__(self) -> str:
         attr_str = ", ".join(f"{k}={v}" for k, v in self.attributes.items())
@@ -129,13 +138,12 @@ def find_matching_aunt_exact(aunts: List[Aunt], aunt_to_be_matched: Aunt) -> Opt
         Optional[Aunt]: The matching Aunt object, or None if not found.
     """
     for aunt in aunts:
-        match = True
-        for key, value in aunt.attributes.items():
-            # If the aunt has a known attribute, it must match the target
-            if key in aunt_to_be_matched.attributes:
-                if value != aunt_to_be_matched.attributes[key]:
-                    match = False
-                    break
+        # Check if all existing attributes match the target's attributes
+        match = all(
+            value == aunt_to_be_matched.attributes.get(key)
+            for key, value in aunt.attributes.items()
+            if key in aunt_to_be_matched.attributes
+        )
         if match:
             return aunt
     return None
@@ -160,19 +168,11 @@ def find_matching_aunt_ranges(aunts: List[Aunt], aunt_to_be_matched: Aunt) -> Op
         for key, value in aunt.attributes.items():
             if key in aunt_to_be_matched.attributes:
                 target_val = aunt_to_be_matched.attributes[key]
-                
-                if key in ("cats", "trees"):
-                    if value <= target_val:
-                        match = False
-                        break
-                elif key in ("pomeranians", "goldfish"):
-                    if value >= target_val:
-                        match = False
-                        break
-                else:
-                    if value != target_val:
-                        match = False
-                        break
+                # Use operator.eq as default comparison
+                op = PART_2_CHECKS.get(key, operator.eq)
+                if not op(value, target_val):
+                    match = False
+                    break
         if match:
             return aunt
     return None
@@ -182,32 +182,20 @@ class TestAuntMatching(unittest.TestCase):
     """Unit tests for Aunt matching logic."""
 
     def setUp(self):
-        self.target_attrs = {
-            "children": 3,
-            "cats": 7,
-            "samoyeds": 2,
-            "pomeranians": 3,
-            "akitas": 0,
-            "vizslas": 0,
-            "goldfish": 5,
-            "trees": 3,
-            "cars": 2,
-            "perfumes": 1,
-        }
-        self.target_aunt = Aunt("Target", self.target_attrs)
+        self.target_aunt = Aunt("Target", TARGET_ATTRIBUTES)
 
     def test_find_matching_aunt_exact(self):
         """Test exact matching logic."""
         aunt1 = Aunt("Sue 1", {"cars": 2, "children": 3})  # Should match
         aunt2 = Aunt("Sue 2", {"cars": 3, "children": 3})  # Should fail (cars mismatch)
-        
+
         self.assertEqual(find_matching_aunt_exact([aunt1], self.target_aunt), aunt1)
         self.assertIsNone(find_matching_aunt_exact([aunt2], self.target_aunt))
 
     def test_find_matching_aunt_ranges(self):
         """Test range-based matching logic (Part 2)."""
         # "cats" > 7
-        aunt_cats_match = Aunt("Sue Cats", {"cats": 8}) 
+        aunt_cats_match = Aunt("Sue Cats", {"cats": 8})
         aunt_cats_fail = Aunt("Sue Cats Fail", {"cats": 7})
 
         # "pomeranians" < 3
@@ -216,7 +204,7 @@ class TestAuntMatching(unittest.TestCase):
 
         self.assertEqual(find_matching_aunt_ranges([aunt_cats_match], self.target_aunt), aunt_cats_match)
         self.assertIsNone(find_matching_aunt_ranges([aunt_cats_fail], self.target_aunt))
-        
+
         self.assertEqual(find_matching_aunt_ranges([aunt_pom_match], self.target_aunt), aunt_pom_match)
         self.assertIsNone(find_matching_aunt_ranges([aunt_pom_fail], self.target_aunt))
 
@@ -266,20 +254,8 @@ def main() -> None:
         aunts = parse_input(args.file)
         logger.info(f"Successfully parsed {len(aunts)} Aunt objects.")
 
-        # Define the target aunt (Sender)
-        target_attributes = {
-            "children": 3,
-            "cats": 7,
-            "samoyeds": 2,
-            "pomeranians": 3,
-            "akitas": 0,
-            "vizslas": 0,
-            "goldfish": 5,
-            "trees": 3,
-            "cars": 2,
-            "perfumes": 1,
-        }
-        aunt_to_be_matched = Aunt("Sender", target_attributes)
+        # Define the target aunt (Sender) using the global constant
+        aunt_to_be_matched = Aunt("Sender", TARGET_ATTRIBUTES)
 
         # Part 1
         logger.info("Finding match for Part 1 (Exact match)...")
