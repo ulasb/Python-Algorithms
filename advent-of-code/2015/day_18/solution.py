@@ -11,6 +11,7 @@ import logging
 import sys
 import unittest
 from typing import List
+from unittest.mock import mock_open, patch
 
 # Constants
 DEFAULT_INPUT_FILE = "input.txt"
@@ -257,18 +258,14 @@ class TestLightGrid(unittest.TestCase):
     def test_parse_grid(self):
         """Test parsing a simple grid from string."""
         test_data = [".#.#.#", "...##.", "#....#", "..#...", "#.#..#", "####.."]
-        with open("test_input.txt", "w") as f:
-            f.write("\n".join(test_data))
+        mock_file_content = "\n".join(test_data)
 
-        grid = parse_grid("test_input.txt")
+        with patch("builtins.open", mock_open(read_data=mock_file_content)):
+            grid = parse_grid("test_input.txt")
+
         self.assertEqual(len(grid), 6)
         self.assertEqual(len(grid[0]), 6)
         self.assertEqual(count_lights_on(grid), 15)
-
-        # Clean up
-        import os
-
-        os.remove("test_input.txt")
 
     def test_count_neighbors(self):
         """Test neighbor counting."""
@@ -293,21 +290,16 @@ class TestLightGrid(unittest.TestCase):
     def test_small_example(self):
         """Test the small example from Advent of Code."""
         test_data = [".#.#.#", "...##.", "#....#", "..#...", "#.#..#", "####.."]
-        with open("test_input.txt", "w") as f:
-            f.write("\n".join(test_data))
+        mock_file_content = "\n".join(test_data)
 
-        grid = parse_grid("test_input.txt")
+        with patch("builtins.open", mock_open(read_data=mock_file_content)):
+            grid = parse_grid("test_input.txt")
 
         # After 4 steps, there should be 4 lights on
         for _ in range(4):
             grid = simulate_step(grid)
 
         self.assertEqual(count_lights_on(grid), 4)
-
-        # Clean up
-        import os
-
-        os.remove("test_input.txt")
 
 
 def main():
