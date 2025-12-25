@@ -68,12 +68,12 @@ def parse_line(line: str) -> Optional[Aunt]:
         Optional[Aunt]: The parsed Aunt object, or None if parsing fails.
     """
     # Splits "Sue 1: children: 1, cars: 8" into name="Sue 1" and attributes
-    match = re.match(r"^(.*?)[:](.*)$", line)
-    if not match:
+    name_part, sep, raw_attrs = line.partition(":")
+    if not sep:
         return None
 
-    name = match.group(1).strip()
-    raw_attrs = match.group(2).strip()
+    name = name_part.strip()
+    raw_attrs = raw_attrs.strip()
 
     attributes = {}
     # Split by comma to get "key: value" pairs
