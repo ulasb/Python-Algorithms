@@ -66,7 +66,7 @@ def solve(containers: List[int], target: int) -> Dict[int, int]:
     """
     # ways[v] stores a dictionary: {num_containers: count_of_combinations}
     # where v is the volume reached.
-    ways: List[Dict[int, int]] = [{} for _ in range(target + 1)]
+    ways: List[defaultdict[int, int]] = [defaultdict(int) for _ in range(target + 1)]
     
     # Base case: 0 volume is reached using 0 containers in 1 way.
     ways[0][0] = 1
@@ -77,7 +77,7 @@ def solve(containers: List[int], target: int) -> Dict[int, int]:
             prev_v = v - size
             for count, num_ways in ways[prev_v].items():
                 new_count = count + 1
-                ways[v][new_count] = ways[v].get(new_count, 0) + num_ways
+                ways[v][new_count] += num_ways
 
     return ways[target]
 
