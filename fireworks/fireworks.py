@@ -41,6 +41,49 @@ WHITE = (255, 255, 255)
 clock = pygame.time.Clock()
 FPS = 60
 
+# Particle physics constants
+PARTICLE_GRAVITY = 0.15
+PARTICLE_FADE_RATE_MIN = 2.0
+PARTICLE_FADE_RATE_MAX = 4.0
+PARTICLE_SIZE_MIN = 2
+PARTICLE_SIZE_MAX = 4
+PARTICLE_SPEED_MIN = 2.0
+PARTICLE_SPEED_MAX = 8.0
+PARTICLE_AIR_RESISTANCE = 0.98
+
+# Firework constants
+LAUNCH_X_MARGIN_FACTOR = 0.125  # How far from edges fireworks can launch (12.5%)
+EXPLOSION_HEIGHT_MIN_FACTOR = 0.10  # Top 10% of screen
+EXPLOSION_HEIGHT_MAX_FACTOR = 0.25  # Top 25% of screen
+ROCKET_VELOCITY_Y = -12  # Upward velocity (negative is up)
+MIN_PARTICLES = 80
+MAX_PARTICLES = 120
+
+# UI constants
+FOOTER_HEIGHT = 40
+FOOTER_ALPHA = 180  # Semi-transparent black background
+
+# Font cache to avoid recreating fonts every frame
+_font_cache = {}
+
+
+def get_font(size):
+    """Get a cached font object.
+
+    Parameters
+    ----------
+    size : int
+        Font size in pixels.
+
+    Returns
+    -------
+    pygame.font.Font
+        Cached font object of the specified size.
+    """
+    if size not in _font_cache:
+        _font_cache[size] = pygame.font.Font(None, size)
+    return _font_cache[size]
+
 
 def create_launch_sound():
     """Generate a whoosh sound for rocket launch.
@@ -166,15 +209,15 @@ class Particle:
 
         # Random velocity in all directions for explosion effect
         angle = random.uniform(0, 2 * math.pi)
-        speed = random.uniform(2, 8)
+        speed = random.uniform(PARTICLE_SPEED_MIN, PARTICLE_SPEED_MAX)
         self.vx = math.cos(angle) * speed
         self.vy = math.sin(angle) * speed
 
         # Gravity and fade
-        self.gravity = 0.15
+        self.gravity = PARTICLE_GRAVITY
         self.alpha = 255  # Opacity
-        self.fade_rate = random.uniform(2, 4)
-        self.size = random.randint(2, 4)
+        self.fade_rate = random.uniform(PARTICLE_FADE_RATE_MIN, PARTICLE_FADE_RATE_MAX)
+        self.size = random.randint(PARTICLE_SIZE_MIN, PARTICLE_SIZE_MAX)
 
     def update(self):
         """Update particle position and apply physics.
@@ -188,7 +231,7 @@ class Particle:
         self.alpha -= self.fade_rate  # Fade out
 
         # Slow down horizontal movement slightly
-        self.vx *= 0.98
+        self.vx *= PARTICLE_AIR_RESISTANCE
 
     def draw(self, surface):
         """Draw the particle with fading effect.
@@ -250,18 +293,18 @@ class Firework:
 
     def __init__(self):
         # Starting position: random x in center 75% of screen, bottom of screen
-        center_start = WIDTH * 0.125  # 12.5% from left
-        center_end = WIDTH * 0.875  # 87.5% from left
+        center_start = WIDTH * LAUNCH_X_MARGIN_FACTOR
+        center_end = WIDTH * (1 - LAUNCH_X_MARGIN_FACTOR)
         self.x = random.uniform(center_start, center_end)
         self.y = HEIGHT
 
-        # Target explosion height: top 10-25% of screen (inverted, so 75-90% down)
-        explosion_start = HEIGHT * 0.10
-        explosion_end = HEIGHT * 0.25
+        # Target explosion height: top 10-25% of screen
+        explosion_start = HEIGHT * EXPLOSION_HEIGHT_MIN_FACTOR
+        explosion_end = HEIGHT * EXPLOSION_HEIGHT_MAX_FACTOR
         self.target_y = random.uniform(explosion_start, explosion_end)
 
         # Rocket velocity
-        self.vy = -12  # Upward velocity
+        self.vy = ROCKET_VELOCITY_Y  # Upward velocity (negative)
         self.vx = 0
 
         # State
@@ -312,17 +355,16 @@ class Firework:
             if self.y <= self.target_y:
                 self.explode()
         else:
-            # Update all particles
-            for particle in self.particles[:]:
+            # Update all particles and keep only alive ones (more efficient than remove())
+            for particle in self.particles:
                 particle.update()
-                if particle.is_dead():
-                    self.particles.remove(particle)
+            self.particles = [p for p in self.particles if not p.is_dead()]
 
     def explode(self):
         """Create explosion particles.
 
         Marks the firework as exploded, plays the explosion sound, and generates
-        80-120 particles that spread out in all directions from the explosion point.
+        particles that spread out in all directions from the explosion point.
         """
         self.exploded = True
 
@@ -330,7 +372,7 @@ class Firework:
         explosion_sound.play()
 
         # Create many particles for the explosion
-        num_particles = random.randint(80, 120)
+        num_particles = random.randint(MIN_PARTICLES, MAX_PARTICLES)
         for _ in range(num_particles):
             particle = Particle(self.x, self.y, self.explosion_color)
             self.particles.append(particle)
@@ -388,7 +430,7 @@ def draw_text(surface, text, size, x, y, color=WHITE):
     color : tuple of int, optional
         RGB color tuple for the text (default is WHITE).
     """
-    font = pygame.font.Font(None, size)
+    font = get_font(size)
     text_surface = font.render(text, True, color)
     text_rect = text_surface.get_rect()
     text_rect.center = (x, y)
@@ -426,11 +468,10 @@ def main():
                     waiting_for_input = False
                     print(f"Firework launched! (Total: {len(fireworks)})")
 
-        # Update all fireworks
-        for firework in fireworks[:]:
+        # Update all fireworks and keep only unfinished ones (more efficient than remove())
+        for firework in fireworks:
             firework.update()
-            if firework.is_finished():
-                fireworks.remove(firework)
+        fireworks = [f for f in fireworks if not f.is_finished()]
 
         # Draw everything
         screen.fill(BLACK)
@@ -450,17 +491,16 @@ def main():
             )
 
         # Draw permanent controls footer with semi-transparent background
-        footer_height = 40
-        footer_surface = pygame.Surface((WIDTH, footer_height), pygame.SRCALPHA)
-        footer_surface.fill((0, 0, 0, 180))  # Semi-transparent black
-        screen.blit(footer_surface, (0, HEIGHT - footer_height))
+        footer_surface = pygame.Surface((WIDTH, FOOTER_HEIGHT), pygame.SRCALPHA)
+        footer_surface.fill((0, 0, 0, FOOTER_ALPHA))
+        screen.blit(footer_surface, (0, HEIGHT - FOOTER_HEIGHT))
 
         # Draw FPS counter on the left
         current_fps = clock.get_fps()
         fps_text = f"FPS: {current_fps:.1f}"
-        font = pygame.font.Font(None, 24)
+        font = get_font(24)
         fps_surface = font.render(fps_text, True, WHITE)
-        screen.blit(fps_surface, (10, HEIGHT - footer_height // 2 - 8))
+        screen.blit(fps_surface, (10, HEIGHT - FOOTER_HEIGHT // 2 - 8))
 
         # Draw control instructions in the center
         draw_text(
@@ -468,7 +508,7 @@ def main():
             "SPACE: Launch Firework  |  ESC/Q: Quit",
             24,
             WIDTH // 2,
-            HEIGHT - footer_height // 2,
+            HEIGHT - FOOTER_HEIGHT // 2,
         )
 
         pygame.display.flip()
