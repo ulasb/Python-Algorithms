@@ -37,4 +37,5 @@ These scripts are created as solutions to the Advent of Code problems. Make sure
 - Performant: Solutions must still be efficient enough to run in a reasonable amount of time.
 
 ## Licensing
-Mention that code here was created and published by Ulaş Bardak and that we follow Mozilla Public License 2.0 with a high level description of thwat that means.
+- Mention that code here was created and published by Ulaş Bardak and that we follow Mozilla Public License 2.0 with a high level description of what that means.
+- Make sure we are handling licensing requirements from any libraries we use correctly.
