@@ -249,7 +249,8 @@ class NewsFetcher:
         if os.path.exists(icon_path):
             try:
                 return pygame.image.load(icon_path)
-            except Exception:
+            except pygame.error as e:
+                print(f"Warning: could not load cached icon {icon_path}: {e}", file=sys.stderr)
                 pass
 
         # Try Google's favicon service
