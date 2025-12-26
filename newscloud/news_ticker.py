@@ -111,7 +111,8 @@ class Headline:
                     self.age_str = f"{hours}h ago"
                 else:
                     self.age_str = f"{hours // 24}d ago"
-            except Exception:
+            except (ValueError, TypeError):
+                # Ignore articles with malformed date strings.
                 pass
 
         self.surface = font.render(self.text, True, TEXT_COLOR)
