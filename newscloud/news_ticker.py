@@ -431,7 +431,7 @@ def main():
     args = parser.parse_args()
     api_key = get_api_key(args.api_key)
     if not api_key:
-        print("Error: NewsAPI key not found.")
+        print("Error: NewsAPI key not found.", file=sys.stderr)
         sys.exit(1)
 
     api_params = {
