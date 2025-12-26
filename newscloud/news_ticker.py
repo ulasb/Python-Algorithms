@@ -211,7 +211,8 @@ class NewsFetcher:
             try:
                 with open(CACHE_FILE, "r") as f:
                     return json.load(f)
-            except (json.JSONDecodeError, IOError):
+            except (json.JSONDecodeError, IOError) as e:
+                print(f"Warning: Could not read cache file '{CACHE_FILE}': {e}", file=sys.stderr)
                 pass
 
         url = "https://newsapi.org/v2/top-headlines"
