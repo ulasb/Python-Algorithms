@@ -260,7 +260,8 @@ class NewsFetcher:
                 with open(icon_path, "wb") as f:
                     f.write(resp.content)
                 return pygame.image.load(BytesIO(resp.content))
-        except Exception:
+        except requests.exceptions.RequestException as e:
+            print(f"Warning: could not fetch favicon for {domain}: {e}", file=sys.stderr)
             pass
         return None
 
