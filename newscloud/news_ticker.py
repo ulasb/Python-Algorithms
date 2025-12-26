@@ -6,6 +6,7 @@ import argparse
 import webbrowser
 import warnings
 import random
+import queue
 from datetime import datetime
 from urllib.parse import urlparse
 from threading import Thread
@@ -30,7 +31,7 @@ HOVER_COLOR = (0, 191, 255)
 INFO_COLOR = (180, 180, 180)
 TOOLTIP_BG = (30, 31, 40, 230)
 FONT_SIZE = 26
-TICKER_SPEED = 2.0
+TICKER_SPEED_PPS = 120
 FPS = 60
 LANES = 5
 LANE_HEIGHT = 60
@@ -294,6 +295,7 @@ class NewsTickerApp:
 
         self.headlines = []
         self.lane_last_x = [0] * LANES
+        self.icon_queue = queue.Queue()
         self.last_update = 0
         self.running = True
 
@@ -318,12 +320,7 @@ class NewsTickerApp:
         def load_icon_bg(headline_obj, art_url):
             icon = self.fetcher.get_favicon(art_url)
             if icon:
-                icon = pygame.transform.scale(icon, (24, 24))
-                headline_obj.icon = icon
-                headline_obj.text_offset = 32
-                headline_obj.width += 32
-                # Update rect width for hover detection
-                headline_obj.rect.width = headline_obj.width
+                self.icon_queue.put((headline_obj, icon))
 
         Thread(
             target=load_icon_bg, args=(h, article.get("url", "")), daemon=True
@@ -364,11 +361,21 @@ class NewsTickerApp:
         self.last_update = time.time()
         Thread(target=self.update_headlines_loop, daemon=True).start()
 
-        ticker_speed_pps = 120  # Pixels per second
-
         while self.running:
             # Calculate delta time for smooth movement
             dt = self.clock.tick(FPS) / 1000.0  # Seconds since last frame
+
+            # Process background loaded icons
+            while not self.icon_queue.empty():
+                try:
+                    h_obj, icon_surf = self.icon_queue.get_nowait()
+                    h_obj.icon = pygame.transform.scale(icon_surf, (24, 24))
+                    h_obj.text_offset = 32
+                    h_obj.width += 32
+                    h_obj.rect.width = h_obj.width
+                except queue.Empty:
+                    break
+
             mouse_pos = pygame.mouse.get_pos()
             # Check if any headline is hovered to pause scrolling
             hovered_headline = None
@@ -393,7 +400,7 @@ class NewsTickerApp:
             new_lane_last_x = [-9999.0] * LANES
             for h in self.headlines[:]:
                 if not hovered_headline:
-                    h.update(ticker_speed_pps * dt)
+                    h.update(TICKER_SPEED_PPS * dt)
 
                 lane = (int(h.y) - 10) // LANE_HEIGHT
                 if 0 <= lane < LANES:
@@ -435,11 +442,12 @@ def main():
         print("Error: NewsAPI key not found.", file=sys.stderr)
         sys.exit(1)
 
-    api_params = {
-        k: v
-        for k, v in vars(args).items()
-        if v is not None and k not in ["api_key", "check_params"]
-    }
+    api_params = {}
+    forbidden_keys = ["api_key", "check_params"]
+    for key, value in vars(args).items():
+        if value is not None and key not in forbidden_keys:
+            api_params[key] = value
+
     if not any(k in api_params for k in ["country", "category", "sources", "q"]):
         api_params["country"] = "us"
 
