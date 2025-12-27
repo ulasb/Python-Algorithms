@@ -391,7 +391,7 @@ class NewsTickerApp:
                     self.next_batch = articles
                     self.is_fading_out = True  # Trigger transition
                     self.last_update_slot = current_slot
-                except Exception as e:
+                except requests.exceptions.RequestException as e:
                     self.notification = [
                         "Update Failed. Retrying in 15m...",
                         time.time() + 5,
