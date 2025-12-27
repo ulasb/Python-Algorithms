@@ -242,7 +242,7 @@ class NewsFetcher:
                     if f.startswith(CACHE_BASE_NAME) and f.endswith(".json"):
                         try:
                             os.remove(f)
-                        except:
+                        except OSError:
                             pass
 
             with open(cache_file, "w") as f:
