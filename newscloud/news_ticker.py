@@ -11,6 +11,7 @@ from datetime import datetime
 from urllib.parse import urlparse
 from threading import Thread
 from io import BytesIO
+from dataclasses import dataclass
 
 # Suppress urllib3 NotOpenSSLWarning which occurs on some macOS systems with older LibreSSL
 # Must be done before importing requests/urllib3
@@ -45,6 +46,15 @@ This Source Code Form is subject to the terms of the Mozilla Public
 License, v. 2.0. If a copy of the MPL was not distributed with this
 file, You can obtain one at http://mozilla.org/MPL/2.0/.
 """
+
+
+@dataclass
+class Notification:
+    """Represents a fading notification message."""
+
+    text: str
+    expiry_time: float
+    alpha: int = 255
 
 
 class Headline:
@@ -392,11 +402,10 @@ class NewsTickerApp:
                     self.is_fading_out = True  # Trigger transition
                     self.last_update_slot = current_slot
                 except requests.exceptions.RequestException as e:
-                    self.notification = [
-                        "Update Failed. Retrying in 15m...",
-                        time.time() + 5,
-                        255,
-                    ]
+                    self.notification = Notification(
+                        text="Update Failed. Retrying in 15m...",
+                        expiry_time=time.time() + 5,
+                    )
                     print(f"Update failed: {e}")
                     self.last_update_slot = current_slot
             time.sleep(UPDATE_CHECK_INTERVAL)
@@ -466,28 +475,125 @@ class NewsTickerApp:
     def _draw_notification(self):
         """Draw fading notification on update failure."""
         if self.notification:
-            text, expiry, alpha = self.notification
+            text = self.notification.text
+            expiry = self.notification.expiry_time
             now = time.time()
             if now > expiry:
-                self.notification[2] -= 5
-                if self.notification[2] <= 0:
+                self.notification.alpha -= 5
+                if self.notification.alpha <= 0:
                     self.notification = None
                     return
 
+            alpha = self.notification.alpha
             tw, th = self.small_font.size(text)
             rect = pygame.Rect(
                 self.screen.get_width() // 2 - tw // 2 - 10, 10, tw + 20, th + 10
             )
             s = pygame.Surface((rect.width, rect.height), pygame.SRCALPHA)
             color = list(NOTIFICATION_BG)
-            color[3] = self.notification[2]
+            color[3] = alpha
             s.fill(color)
             self.screen.blit(s, (rect.x, rect.y))
 
-            t_color = list(TEXT_COLOR)
-            t_color = (t_color[0], t_color[1], t_color[2], self.notification[2])
+            t_color = (*TEXT_COLOR, alpha)
             ts = self.small_font.render(text, True, t_color)
             self.screen.blit(ts, (rect.x + 10, rect.y + 5))
+
+    def _handle_events(self, hovered_headline):
+        """Handle user input events."""
+        mouse_pos = pygame.mouse.get_pos()
+        for event in pygame.event.get():
+            if event.type == pygame.QUIT:
+                self.running = False
+            elif event.type == pygame.MOUSEBUTTONDOWN:
+                if event.button == 1:
+                    if hovered_headline:
+                        webbrowser.open(hovered_headline.url)
+                    for name, rect in self.source_rects.items():
+                        if rect.collidepoint(mouse_pos):
+                            self.all_sources[name] = not self.all_sources[name]
+            elif event.type == pygame.VIDEORESIZE:
+                self.screen = pygame.display.set_mode(
+                    (event.w, event.h), pygame.RESIZABLE
+                )
+
+    def _update_state(self, dt, hovered_headline):
+        """Update positions and maintain article pool."""
+        # Process background loaded icons
+        while not self.icon_queue.empty():
+            try:
+                h_obj, icon_surf = self.icon_queue.get_nowait()
+                h_obj.icon = pygame.transform.scale(icon_surf, (24, 24))
+                h_obj.text_offset = 32
+            except queue.Empty:
+                break
+
+        # Transition logic
+        if self.is_fading_out:
+            self.fade_alpha = min(255, self.fade_alpha + 15)
+            if self.fade_alpha >= 255:
+                self.headlines = []
+                self.lane_last_x = [float(self.screen.get_width())] * LANES
+                self._sync_sources(self.next_batch)
+                for i, art in enumerate(self.next_batch):
+                    lane = i % LANES
+                    self._add_headline(art, lane=lane)
+                self.is_fading_out = False
+        else:
+            self.fade_alpha = max(0, self.fade_alpha - 5)
+
+        # Update headlines
+        for h in self.headlines[:]:
+            if not hovered_headline:
+                h.update(TICKER_SPEED_PPS * dt)
+
+            if h.x + h.width < -200:
+                old_lane = (int(h.y) - 10) // LANE_HEIGHT
+                self.headlines.remove(h)
+
+                # Recycle: Pick a new headline for this lane from active sources
+                current_urls = {hl.url for hl in self.headlines}
+                available_articles = [
+                    a
+                    for a in self.current_articles
+                    if self.all_sources.get(
+                        a.get("source", {}).get("name", "Unknown"), True
+                    )
+                    and a.get("url") not in current_urls
+                ]
+
+                if available_articles:
+                    self._add_headline(random.choice(available_articles), lane=old_lane)
+
+        # Recalculate lane_last_x for the next frame
+        self.lane_last_x = [-9999.0] * LANES
+        for h in self.headlines:
+            lane = (int(h.y) - 10) // LANE_HEIGHT
+            if 0 <= lane < LANES:
+                self.lane_last_x[lane] = max(self.lane_last_x[lane], h.x + h.width)
+
+    def _draw_frame(self, mouse_pos, hovered_headline):
+        """Render all visual elements."""
+        self.screen.fill(BG_COLOR)
+        for h in self.headlines:
+            if h.x < self.screen.get_width() and h.x + h.width > 0:
+                h.draw(self.screen, mouse_pos, self.small_font)
+
+        if hovered_headline:
+            hovered_headline.draw_tooltip(self.screen, mouse_pos, self.small_font)
+
+        self._draw_controls(mouse_pos)
+        self._draw_notification()
+
+        if self.fade_alpha > 0:
+            overlay = pygame.Surface(
+                (self.screen.get_width(), self.screen.get_height())
+            )
+            overlay.fill((0, 0, 0))
+            overlay.set_alpha(self.fade_alpha)
+            self.screen.blit(overlay, (0, 0))
+
+        pygame.display.flip()
 
     def run(self, initial_articles):
         # Initial setup
@@ -498,13 +604,10 @@ class NewsTickerApp:
         # Initial articles spread across lanes and screen
         for i, art in enumerate(initial_articles):
             lane = i % LANES
-            # For the very first items in each lane, start somewhat randomly on screen
             if i < LANES:
                 start_x = random.randint(0, 400)
             else:
-                # Flow naturally from the last item added
                 start_x = self.lane_last_x[lane] + random.randint(200, 500)
-
             self._add_headline(art, start_x=start_x, lane=lane)
 
         now = datetime.now()
@@ -513,113 +616,19 @@ class NewsTickerApp:
 
         while self.running:
             dt = self.clock.tick(FPS) / 1000.0
-
-            # Process background loaded icons
-            while not self.icon_queue.empty():
-                try:
-                    h_obj, icon_surf = self.icon_queue.get_nowait()
-                    h_obj.icon = pygame.transform.scale(icon_surf, (24, 24))
-                    h_obj.text_offset = 32
-                    # width was already pre-allocated in _add_headline
-                except queue.Empty:
-                    break
-
             mouse_pos = pygame.mouse.get_pos()
+
+            # Hover detection
             hovered_headline = None
             for h in self.headlines:
                 if h.rect.collidepoint(mouse_pos):
                     hovered_headline = h
                     break
 
-            for event in pygame.event.get():
-                if event.type == pygame.QUIT:
-                    self.running = False
-                elif event.type == pygame.MOUSEBUTTONDOWN:
-                    if event.button == 1:
-                        if hovered_headline:
-                            webbrowser.open(hovered_headline.url)
-                        for name, rect in self.source_rects.items():
-                            if rect.collidepoint(mouse_pos):
-                                self.all_sources[name] = not self.all_sources[name]
-                elif event.type == pygame.VIDEORESIZE:
-                    self.screen = pygame.display.set_mode(
-                        (event.w, event.h), pygame.RESIZABLE
-                    )
+            self._handle_events(hovered_headline)
+            self._update_state(dt, hovered_headline)
+            self._draw_frame(mouse_pos, hovered_headline)
 
-            # Update and transition logic
-            if self.is_fading_out:
-                self.fade_alpha = min(255, self.fade_alpha + 15)
-                if self.fade_alpha >= 255:
-                    self.headlines = []
-                    self.lane_last_x = [float(self.screen.get_width())] * LANES
-                    self._sync_sources(self.next_batch)
-                    for i, art in enumerate(self.next_batch):
-                        lane = i % LANES
-                        # Let _add_headline calculate the positions based on lane_last_x
-                        self._add_headline(art, lane=lane)
-                    self.is_fading_out = False
-            else:
-                self.fade_alpha = max(0, self.fade_alpha - 5)
-
-            # Update lane state
-            new_lane_last_x = [-9999.0] * LANES
-            for h in self.headlines[:]:
-                if not hovered_headline:
-                    h.update(TICKER_SPEED_PPS * dt)
-
-                lane = (int(h.y) - 10) // LANE_HEIGHT
-                if 0 <= lane < LANES:
-                    new_lane_last_x[lane] = max(new_lane_last_x[lane], h.x + h.width)
-
-                if h.x + h.width < -200:
-                    old_lane = (int(h.y) - 10) // LANE_HEIGHT
-                    self.headlines.remove(h)
-
-                    # Recycle: Pick a new headline for this lane from active sources
-                    # Filter out anything already on screen
-                    current_urls = {h.url for h in self.headlines}
-                    available_articles = [
-                        a
-                        for a in self.current_articles
-                        if self.all_sources.get(
-                            a.get("source", {}).get("name", "Unknown"), True
-                        )
-                        and a.get("url") not in current_urls
-                    ]
-
-                    if available_articles:
-                        self._add_headline(
-                            random.choice(available_articles), lane=old_lane
-                        )
-
-            # CRITICAL: Recalculate lane_last_x after all updates/additions
-            self.lane_last_x = [-9999.0] * LANES
-            for h in self.headlines:
-                lane = (int(h.y) - 10) // LANE_HEIGHT
-                if 0 <= lane < LANES:
-                    self.lane_last_x[lane] = max(self.lane_last_x[lane], h.x + h.width)
-
-            # Draw
-            self.screen.fill(BG_COLOR)
-            for h in self.headlines:
-                if h.x < self.screen.get_width() and h.x + h.width > 0:
-                    h.draw(self.screen, mouse_pos, self.small_font)
-
-            if hovered_headline:
-                hovered_headline.draw_tooltip(self.screen, mouse_pos, self.small_font)
-
-            self._draw_controls(mouse_pos)
-            self._draw_notification()
-
-            if self.fade_alpha > 0:
-                overlay = pygame.Surface(
-                    (self.screen.get_width(), self.screen.get_height())
-                )
-                overlay.fill((0, 0, 0))
-                overlay.set_alpha(self.fade_alpha)
-                self.screen.blit(overlay, (0, 0))
-
-            pygame.display.flip()
         pygame.quit()
 
 

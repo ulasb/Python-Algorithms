@@ -13,7 +13,7 @@ A Python script that displays a scrolling news ticker of the top headlines from 
 2.  **Install Dependencies**:
     *   Use `pip` to install the required Python packages:
         ```bash
-        pip install requests pygame
+        pip install -r requirements.txt
         ```
 
 ## Usage
