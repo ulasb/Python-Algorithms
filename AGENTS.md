@@ -36,6 +36,9 @@ These scripts are created as solutions to the Advent of Code problems. Make sure
 - Readable and maintainable: Prioritize clear, understandable code that follows Python best practices. It's acceptable to sacrifice minor performance optimizations for better readability.
 - Performant: Solutions must still be efficient enough to run in a reasonable amount of time.
 
+## Dependencies
+To simplify dependency management for users, consider adding a requirements.txt file. This allows for a more standard installation process via pip install -r requirements.txt. You would add requests and pygame to this file.
+
 ## Licensing
 - Mention that code here was created and published by Ulaş Bardak and that we follow Mozilla Public License 2.0 with a high level description of what that means.
 - Make sure we are handling licensing requirements from any libraries we use correctly.
