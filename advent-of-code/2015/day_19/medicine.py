@@ -1,6 +1,4 @@
 from collections import deque
-import sys
-sys.setrecursionlimit(10000)    
 
 def read_input(input_file):
     hit_space = False
@@ -43,30 +41,34 @@ unique_molecules = generate_molecules(original_molecule, replacements, seen_befo
 print("Part 1:", len(unique_molecules))
 
 # Part 2
-# 1)Push starting molecule into a stack
-# 2)Pop molecule from stack and replace all occurrences of each replacement
-# 3)Push new molecules into stack
-# 4)Repeat until original molecule is reached
+# A backward search from the target molecule to "e" is much more efficient.
+# We reverse the replacements and use a standard Breadth-First Search (BFS).
+reverse_replacements = [(to, from_) for from_, to in replacements]
 
-# Reset seen_before
-seen_before = set()
-molecule_queue = deque()
-cur_molecule = "e"
-num_steps = 0
-# TODO: This will result in an infinite loop if the original molecule is not reachable from "e"
-while cur_molecule != original_molecule:
-    print("Current molecule:", cur_molecule)
-    if len(cur_molecule) > 2*len(original_molecule):
-        pass
-    else:
-        num_steps += 1
-        new_molecules = generate_molecules(cur_molecule, replacements, seen_before)
-        for new_molecule in new_molecules:
-            if new_molecule == original_molecule:
-                print("Part 2:", num_steps)
-                exit()
-            molecule_queue.appendleft((new_molecule, num_steps))
+seen_before = {original_molecule}
+molecule_queue = deque([(original_molecule, 0)])
 
-    cur_molecule, num_steps = molecule_queue.pop()
+while molecule_queue:
+    cur_molecule, num_steps = molecule_queue.popleft()
+    print(cur_molecule)
 
-print("Part 2:", num_steps)
+    if cur_molecule == "e":
+        print("Part 2:", num_steps)
+        exit()
+
+    # Generate next states by applying reverse replacements
+    for mol_from, mol_to in reverse_replacements:
+        start_pos = 0
+        while True:
+            start_pos = cur_molecule.find(mol_from, start_pos)
+            if start_pos == -1:
+                break
+            
+            new_molecule = cur_molecule[:start_pos] + mol_to + cur_molecule[start_pos + len(mol_from):]
+            if new_molecule not in seen_before:
+                seen_before.add(new_molecule)
+                molecule_queue.append((new_molecule, num_steps + 1))
+            
+            start_pos += 1
+
+print("Part 2: Could not find a solution.")
