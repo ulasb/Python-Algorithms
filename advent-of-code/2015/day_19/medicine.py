@@ -38,25 +38,19 @@ def read_input(input_file: str = DEFAULT_INPUT_FILE) -> Tuple[List[List[str]], s
     Raises:
         FileNotFoundError: If the input file doesn't exist.
     """
-    hit_space = False
     replacements = []
-    original_molecule = ""
     try:
         with open(input_file, "r") as f:
-            for line in f:
-                line = line.strip()
-                if not line:
-                    hit_space = True
-                    continue
-                if hit_space:
-                    original_molecule = line
-                else:
-                    replacements.append(line.split(" => "))
+            content = f.read()
+        
+        replacements_str, molecule_str = content.strip().split("\n\n")
+        
+        replacements.extend(line.split(" => ") for line in replacements_str.splitlines())
     except FileNotFoundError:
         logger.error(f"Error: Input file '{input_file}' not found.")
         raise
 
-    return replacements, original_molecule
+    return replacements, molecule_str
 
 
 def solve_part1(molecule: str, replacements: List[List[str]]) -> int:
