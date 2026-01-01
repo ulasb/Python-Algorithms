@@ -69,8 +69,8 @@ def solve_part2(goal: int) -> int | None:
         The number of the first house to reach the goal, or None if not found.
     """
     # In Part 2, each elf delivers 11 * its ID, but only to 50 houses.
-    target_sum_per_house = goal / PART2_PRESENTS_PER_ELF
-    max_house_limit = int(target_sum_per_house)
+    target_sum_per_house = (goal + PART2_PRESENTS_PER_ELF - 1) // PART2_PRESENTS_PER_ELF
+    max_house_limit = target_sum_per_house
 
     house_presents_counts = np.zeros(max_house_limit + 1, dtype=int)
 
