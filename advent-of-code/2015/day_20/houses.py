@@ -35,7 +35,7 @@ def solve_part1(goal: int) -> int | None:
     """
     # Each elf contributes 10 * its ID. We can divide the goal by 10 to work with smaller numbers.
     target_sum_per_house = goal // PART1_PRESENTS_PER_ELF
-    # A safe upper bound for the house number is the target itself.
+    # A practical upper bound for the house number is the target itself.
     max_house_limit = target_sum_per_house
 
     house_presents_counts = np.zeros(max_house_limit + 1, dtype=int)
