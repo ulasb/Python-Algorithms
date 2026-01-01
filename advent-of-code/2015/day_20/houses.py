@@ -5,7 +5,7 @@ The MPL 2.0 is a permissive, file-level license that allows for the integration 
 this code into larger works, provided that the source code of this file remains 
 available under the MPL 2.0.
 
-Advent of Code 2015 - Day 20: Infinite Houses With Infinite Elves
+Advent of Code 2015 - Day 20: Infinite Elves and Infinite Houses
 """
 
 import numpy as np
