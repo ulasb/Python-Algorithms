@@ -15,6 +15,7 @@ import sys
 import unittest
 from enum import Enum
 from typing import List, Optional, Tuple
+import itertools
 
 
 class ItemType(Enum):
