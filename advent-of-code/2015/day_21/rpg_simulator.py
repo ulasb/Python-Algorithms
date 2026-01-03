@@ -330,10 +330,7 @@ def main():
 
     for w in WEAPONS:
         for a in ARMOR:
-            for i, r1 in enumerate(RINGS):
-                for j, r2 in enumerate(RINGS):
-                    if i == j:
-                        continue
+            for r1, r2 in itertools.combinations(RINGS, 2):
 
                     player.unequip_all()
                     player.equip_weapon(w)
