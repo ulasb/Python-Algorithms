@@ -44,10 +44,10 @@ class Item:
         cost (int): The cost in gold.
         damage (int): The damage bonus.
         armor (int): The armor bonus.
-        type (ItemType): The category of the item.
+        item_type (ItemType): The category of the item.
     """
 
-    def __init__(self, name: str, cost: int, damage: int, armor: int, type: ItemType):
+    def __init__(self, name: str, cost: int, damage: int, armor: int, item_type: ItemType):
         """
         Initialize an Item.
 
@@ -56,13 +56,13 @@ class Item:
             cost: Gold cost.
             damage: Damage value.
             armor: Armor value.
-            type: Category (Weapon, Armor, or Ring).
+            item_type: Category (Weapon, Armor, or Ring).
         """
         self.name = name
         self.cost = cost
         self.damage = damage
         self.armor = armor
-        self.type = type
+        self.item_type = item_type
 
     def __repr__(self) -> str:
         return f"{self.name} (Cost: {self.cost}, Damage: {self.damage}, Armor: {self.armor})"
@@ -284,16 +284,17 @@ def parse_boss_stats(filename: str) -> Character:
         ValueError: If file data is malformed.
     """
     stats = {}
-    try:
-        with open(filename, "r") as f:
-            for line in f:
-                if ":" in line:
-                    key, val = line.split(":")
-                    stats[key.strip()] = int(val.strip())
-        return Character("Boss", stats["Hit Points"], stats["Damage"], stats["Armor"])
-    except (FileNotFoundError, KeyError) as e:
-        print(f"Error parsing {filename}: {e}")
-        sys.exit(1)
+    with open(filename, "r") as f:
+        for line in f:
+            if ":" in line:
+                key, val = line.split(":")
+                stats[key.strip()] = int(val.strip())
+
+    if not all(k in stats for k in ["Hit Points", "Damage", "Armor"]):
+        missing = [k for k in ["Hit Points", "Damage", "Armor"] if k not in stats]
+        raise ValueError(f"Missing required boss stats: {', '.join(missing)}")
+
+    return Character("Boss", stats["Hit Points"], stats["Damage"], stats["Armor"])
 
 
 class TestRPGBattle(unittest.TestCase):
@@ -321,7 +322,12 @@ def main():
         unittest.TextTestRunner().run(suite)
         return
 
-    boss = parse_boss_stats(args.input)
+    try:
+        boss = parse_boss_stats(args.input)
+    except (FileNotFoundError, ValueError) as e:
+        print(f"Error: {e}")
+        sys.exit(1)
+
     player = Character("Player", 100, 0, 0)
 
     min_cost = float("inf")
