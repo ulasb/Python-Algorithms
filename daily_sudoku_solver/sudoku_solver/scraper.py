@@ -19,23 +19,7 @@ from playwright.async_api import async_playwright
 async def capture_page_screenshot(url, screenshot_path="board.png"):
     """
     Navigates to the URL and captures a high-resolution screenshot.
-
-    Parameters
-    ----------
-    url : str
-        The URL of the page containing the Sudoku board.
-    screenshot_path : str, optional
-        The path where the screenshot will be saved. Default is "board.png".
-
-    Returns
-    -------
-    str
-        The path to the captured screenshot.
-
-    Raises
-    ------
-    Exception
-        If the navigation or screenshot capture fails.
+    Also returns the bounding box of the detected Sudoku board if found.
     """
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True)
@@ -48,89 +32,119 @@ async def capture_page_screenshot(url, screenshot_path="board.png"):
 
         try:
             print(f"Navigating to {url}...")
-            await page.goto(url, wait_until="networkidle", timeout=30000)
-            await asyncio.sleep(5)  # Wait for stability and animations
+            # Use 'load' instead of 'networkidle'
+            await page.goto(url, wait_until="load", timeout=30000)
 
-            # Dismiss common overlays (cookies, promos)
-            await page.evaluate(
-                """
+            # Wait for common board containers
+            selectors = [
+                "#sudokutable",
+                ".game-wrapper",
+                ".game-board",
+                "#puzzle_grid",
+                ".sudokugrid",
+                "table.sudokutable",
+                "canvas",
+            ]
+            
+            board_bbox = None
+            try:
+                # Find the first visible selector
+                for selector in selectors:
+                    el = await page.wait_for_selector(selector, state="visible", timeout=2000)
+                    if el:
+                        board_bbox = await el.bounding_box()
+                        if board_bbox:
+                            print(f"Detected board using selector: {selector}")
+                            break
+            except Exception:
+                pass
+
+            # Dismiss overlays
+            await page.evaluate("""
                 () => {
-                    const toClick = [
-                        '.qc-cmp2-close-icon', 
-                        '.cookie-banner-close', 
-                        '.cmp-close-button', 
-                        '#onetrust-accept-btn-handler', 
-                        '#promo-bubble', 
-                        '[aria-label="Close"]'
-                    ];
+                    const toClick = ['.qc-cmp2-close-icon', '.cookie-banner-close', '.cmp-close-button', '#onetrust-accept-btn-handler', '#promo-bubble', '[aria-label="Close"]'];
                     for (const s of toClick) {
-                        const el = document.querySelector(s);
-                        if (el && typeof el.click === 'function') el.click();
+                        try {
+                            const el = document.querySelector(s);
+                            if (el && typeof el.click === 'function') el.click();
+                        } catch(e) {}
                     }
                 }
-            """
-            )
+            """)
+            
+            await page.wait_for_load_state("domcontentloaded")
             await asyncio.sleep(2)
 
             await page.screenshot(path=screenshot_path)
             await browser.close()
-            return screenshot_path
+            return screenshot_path, board_bbox
         except Exception as e:
             await browser.close()
-            raise Exception(f"Failed to capture screenshot: {str(e)}")
+            raise RuntimeError(f"Failed to capture screenshot from {url}: {str(e)}") from e
 
 
-def find_board_in_image(image_path):
+def find_board_in_image(image_path, board_bbox=None):
+    """
+    Identifies and crops the Sudoku board.
+    Uses bounding box from Playwright if available, otherwise falls back to CV.
+    """
+    img = cv2.imread(image_path)
+    if img is None:
+        return None
+
+    # If we have a bounding box from the browser, use it!
+    if board_bbox:
+        x, y, w, h = int(board_bbox['x']), int(board_bbox['y']), int(board_bbox['width']), int(board_bbox['height'])
+        # Safety check for dimensions
+        if w > 100 and h > 100:
+            # Crop the board from the screenshot
+            # Note: Playwright coordinates are in CSS pixels, screenshot is in viewport pixels.
+            # At dpr=1 (default), they match 1:1.
+            board = img[y:y+h, x:x+w]
+            # Standardize size
+            side = 1800
+            return cv2.resize(board, (side, side), interpolation=cv2.INTER_CUBIC)
+
+    # Fallback to CV-based detection (rest of logic...)
     """
     Identifies and crops the Sudoku board from a screenshot using OpenCV.
-
-    Parameters
-    ----------
-    image_path : str
-        The path to the image file.
-
-    Returns
-    -------
-    numpy.ndarray or None
-        A warped and standardized image of the Sudoku board, or None if not found.
+    Refined to prefer squares with internal grid structure.
     """
     img = cv2.imread(image_path)
     if img is None:
         return None
 
     gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+    
+    # Standardize image size for consistent parameter performance if huge
+    h_orig, w_orig = gray.shape
+    scale = 1.0
+    if h_orig > 2000:
+        scale = 2000.0 / h_orig
+        gray_small = cv2.resize(gray, (0, 0), fx=scale, fy=scale)
+    else:
+        gray_small = gray
 
-    # Try multiple thresholding methods to handle different grid styles
+    # Multiple thresholding methods
     thresh_methods = [
         lambda g: cv2.adaptiveThreshold(
-            cv2.GaussianBlur(g, (7, 7), 0),
-            255,
-            cv2.ADAPTIVE_THRESH_GAUSSIAN_C,
-            cv2.THRESH_BINARY_INV,
-            11,
-            2,
+            cv2.GaussianBlur(g, (7, 7), 0), 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 2
         ),
         lambda g: cv2.threshold(
-            cv2.GaussianBlur(g, (5, 5), 0),
-            0,
-            255,
-            cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU,
+            cv2.GaussianBlur(g, (5, 5), 0), 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU
         )[1],
-        lambda g: cv2.Canny(cv2.GaussianBlur(g, (5, 5), 0), 50, 150),
     ]
 
-    best_board = None
-    max_area = 0
+    best_board_rect = None
+    max_score = -1
 
     for method in thresh_methods:
-        thresh = method(gray)
-        contours, _ = cv2.findContours(
-            thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE
-        )
+        thresh = method(gray_small)
+        contours, _ = cv2.findContours(thresh, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
 
         for cnt in contours:
             area = cv2.contourArea(cnt)
-            if area < 50000:
+            if area < (gray_small.size * 0.05): # Board should be at least 5% of page
                 continue
 
             peri = cv2.arcLength(cnt, True)
@@ -139,40 +153,37 @@ def find_board_in_image(image_path):
             if len(approx) == 4:
                 x, y, w, h = cv2.boundingRect(approx)
                 aspect_ratio = float(w) / h
-                if 0.85 <= aspect_ratio <= 1.15:  # Board should be square-like
-                    if area > max_area:
-                        max_area = area
-                        # Perspective transform to flatten the board
-                        pts1 = np.float32([approx[i][0] for i in range(4)])
-                        rect = np.zeros((4, 2), dtype="float32")
-                        s = pts1.sum(axis=1)
-                        rect[0] = pts1[np.argmin(s)]
-                        rect[2] = pts1[np.argmax(s)]
-                        diff = np.diff(pts1, axis=1)
-                        rect[1] = pts1[np.argmin(diff)]
-                        rect[3] = pts1[np.argmax(diff)]
+                if 0.8 <= aspect_ratio <= 1.2:
+                    # Check for internal grid structure (score based on internal contours)
+                    mask = np.zeros(thresh.shape, dtype="uint8")
+                    cv2.drawContours(mask, [cnt], -1, 255, -1)
+                    internal = cv2.bitwise_and(thresh, thresh, mask=mask)
+                    # Count blobs inside: board should have ~20-81 blobs (numbers)
+                    int_cnts, _ = cv2.findContours(internal, cv2.RETR_LIST, cv2.CHAIN_APPROX_SIMPLE)
+                    score = len(int_cnts)
+                    
+                    if score > max_score:
+                        max_score = score
+                        best_board_rect = approx / scale # Scale back to original coordinates
 
-                        side = 900  # Standardize size for OCR
-                        pts2 = np.float32([[0, 0], [side, 0], [side, side], [0, side]])
-                        matrix = cv2.getPerspectiveTransform(rect, pts2)
-                        best_board = cv2.warpPerspective(img, matrix, (side, side))
+    if best_board_rect is not None:
+        pts1 = np.float32([best_board_rect[i][0] for i in range(4)])
+        rect = np.zeros((4, 2), dtype="float32")
+        s = pts1.sum(axis=1); rect[0] = pts1[np.argmin(s)]; rect[2] = pts1[np.argmax(s)]
+        diff = np.diff(pts1, axis=1); rect[1] = pts1[np.argmin(diff)]; rect[3] = pts1[np.argmax(diff)]
+        
+        side = 1800 # Higher resolution for OCR
+        pts2 = np.float32([[0, 0], [side, 0], [side, side], [0, side]])
+        matrix = cv2.getPerspectiveTransform(rect, pts2)
+        return cv2.warpPerspective(img, matrix, (side, side))
 
-    return best_board
+    return None
 
 
 def extract_grid_ocr(board_img):
     """
     Extracts digits from a standardized board image using OCR.
-
-    Parameters
-    ----------
-    board_img : numpy.ndarray
-        A 900x900 image of the Sudoku board.
-
-    Returns
-    -------
-    list of list of int
-        A 9x9 matrix representing the extracted grid.
+    Refined to use a better thresholding for the whole board first, then process cells. Apply morphological opening to digits.
     """
     if board_img is None:
         return None
@@ -182,53 +193,49 @@ def extract_grid_ocr(board_img):
     grid = [[0 for _ in range(9)] for _ in range(9)]
 
     gray = cv2.cvtColor(board_img, cv2.COLOR_BGR2GRAY)
-
-    # Thresholding to isolate digits
-    thresh = cv2.adaptiveThreshold(
-        gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 11, 5
-    )
-
-    # Clean up noise
-    kernel = np.ones((2, 2), np.uint8)
-    thresh = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
-
-    # Find contours (potential digits)
-    cnts, _ = cv2.findContours(thresh, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
-
-    found_digits = []
-    for cnt in cnts:
-        x, y, w, h = cv2.boundingRect(cnt)
-        # Filter by size: a digit should be around 40-90% of a cell's height
-        if (
-            h > cell_size * 0.4
-            and h < cell_size * 0.9
-            and w > cell_size * 0.1
-            and w < cell_size * 0.8
-        ):
-            # Avoid the outside grid lines
-            if x > 5 and y > 5 and x + w < side - 5 and y + h < side - 5:
-                found_digits.append((x, y, w, h, cnt))
-
-    # OCR each localized digit
-    for x, y, w, h, cnt in found_digits:
-        row = (y + h // 2) // cell_size
-        col = (x + w // 2) // cell_size
-
-        if 0 <= row < 9 and 0 <= col < 9 and grid[row][col] == 0:
-            roi = thresh[y : y + h, x : x + w]
-            # Padding for Tesseract
-            pad = 10
-            roi_padded = cv2.copyMakeBorder(
-                roi, pad, pad, pad, pad, cv2.BORDER_CONSTANT, value=0
-            )
-            roi_padded = cv2.bitwise_not(roi_padded)  # Convert to black on white
-
-            config = "--psm 10 -c tessedit_char_whitelist=123456789"
-            text = pytesseract.image_to_string(roi_padded, config=config).strip()
-
-            if text and text.isdigit():
-                grid[row][col] = int(text[0])
-
+    
+    # Try multiple global thresholds to handle different brightness backgrounds
+    # Method 1: Adaptive
+    thresh1 = cv2.adaptiveThreshold(gray, 255, cv2.ADAPTIVE_THRESH_GAUSSIAN_C, cv2.THRESH_BINARY_INV, 21, 10)
+    # Method 2: Global Otsu after blurring
+    blur = cv2.GaussianBlur(gray, (5, 5), 0)
+    _, thresh2 = cv2.threshold(blur, 0, 255, cv2.THRESH_BINARY_INV + cv2.THRESH_OTSU)
+    
+    for thresh in [thresh2, thresh1]:
+        # Clean up noise
+        kernel = np.ones((3, 3), np.uint8)
+        processed = cv2.morphologyEx(thresh, cv2.MORPH_OPEN, kernel)
+        
+        cnts, _ = cv2.findContours(processed, cv2.RETR_TREE, cv2.CHAIN_APPROX_SIMPLE)
+        
+        found_count = 0
+        for cnt in cnts:
+            x, y, w, h = cv2.boundingRect(cnt)
+            # Digit size constraints: height 30-80% of cell, width 10-70%
+            if (h > cell_size * 0.3 and h < cell_size * 0.85 and 
+                w > cell_size * 0.05 and w < cell_size * 0.7):
+                
+                # Center-ish check
+                row = (y + h // 2) // cell_size
+                col = (x + w // 2) // cell_size
+                
+                if 0 <= row < 9 and 0 <= col < 9 and grid[row][col] == 0:
+                    # ROI with padding
+                    roi = processed[y:y+h, x:x+w]
+                    pad = 20
+                    roi_padded = cv2.copyMakeBorder(roi, pad, pad, pad, pad, cv2.BORDER_CONSTANT, value=0)
+                    roi_padded = cv2.bitwise_not(roi_padded) # Black on white for Tesseract
+                    
+                    config = '--psm 10 --oem 3 -c tessedit_char_whitelist=123456789'
+                    text = pytesseract.image_to_string(roi_padded, config=config).strip()
+                    
+                    if text and text.isdigit():
+                        grid[row][col] = int(text[0])
+                        found_count += 1
+        
+        if found_count >= 17: # Minimum clues for a unique Sudoku
+            break
+            
     return grid
 
 
@@ -248,20 +255,14 @@ async def extract_sudoku(url="https://sudoku.com/challenges/daily-sudoku"):
     """
     screenshot_path = "temp_board.png"
     try:
-        await capture_page_screenshot(url, screenshot_path)
-        board_img = find_board_in_image(screenshot_path)
+        screenshot_path, board_bbox = await capture_page_screenshot(url, screenshot_path)
+        board_img = find_board_in_image(screenshot_path, board_bbox)
 
         if board_img is None:
-            if os.path.exists(screenshot_path):
-                os.remove(screenshot_path)
             return None
 
         grid = extract_grid_ocr(board_img)
-
-        if os.path.exists(screenshot_path):
-            os.remove(screenshot_path)
         return grid
-    except Exception as e:
+    finally:
         if os.path.exists(screenshot_path):
             os.remove(screenshot_path)
-        raise e

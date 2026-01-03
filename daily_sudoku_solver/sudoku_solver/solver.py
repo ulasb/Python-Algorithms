@@ -28,10 +28,10 @@ def solve_sudoku(grid, max_steps=50000):
 
     Raises
     ------
-    Exception
+    RuntimeError
         If the solver reaches the maximum step limit.
     """
-    steps = [0]
+    steps = 0
 
     def is_valid(grid, row, col, num):
         """
@@ -69,9 +69,10 @@ def solve_sudoku(grid, max_steps=50000):
         """
         Internal recursive function for backtracking.
         """
-        steps[0] += 1
-        if steps[0] > max_steps:
-            raise Exception(
+        nonlocal steps
+        steps += 1
+        if steps > max_steps:
+            raise RuntimeError(
                 "Solver reached maximum step limit (board might be unsolvable or OCR was incorrect)"
             )
 

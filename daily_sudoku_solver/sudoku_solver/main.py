@@ -24,11 +24,10 @@ async def main():
         The URL of the Sudoku puzzle to solve. Defaults to the Sudoku.com Daily Challenge.
     """
     # Get URL from command line argument or use default
-    url = (
-        sys.argv[1]
-        if len(sys.argv) > 1
-        else "https://sudoku.com/challenges/daily-sudoku"
-    )
+    if len(sys.argv) > 1:
+        url = sys.argv[1]
+    else:
+        url = "https://sudoku.com/challenges/daily-sudoku"
 
     print(f"Loading puzzle from: {url}")
 
