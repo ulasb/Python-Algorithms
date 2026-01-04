@@ -337,9 +337,8 @@ def main():
     except FileNotFoundError:
         print(f"Error: {args.filename} not found.")
         sys.exit(1)
-    except Exception as error:
-        print(f"Error: {error}")
-        sys.exit(1)
+    except (KeyError, ValueError) as error:
+        raise ValueError(f"Error parsing file: {error}") from error
 
     mode = " (HARD MODE)" if args.hard else ""
     print(f"Boss HP: {boss_hp}, Damage: {boss_damage}{mode}")
