@@ -12,7 +12,7 @@ import heapq
 import sys
 import argparse
 import unittest
-from typing import Dict, Tuple, Optional, List
+from typing import Dict, Tuple
 
 
 class Spell:
