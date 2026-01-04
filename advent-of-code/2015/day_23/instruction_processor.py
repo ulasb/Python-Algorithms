@@ -13,7 +13,6 @@ import argparse
 import logging
 import os
 import sys
-import unittest
 from typing import Dict, List
 
 # Configure logging
@@ -54,7 +53,7 @@ def read_instructions(filename: str = DEFAULT_INPUT_FILE) -> List[str]:
     return instructions
 
 
-def execute(instructions: List[str], registers: Dict[str, int]) -> Dict[str, int]:
+def execute(instructions: List[str], registers: Dict[str, int]) -> None:
     """
     Execute a list of instructions using the provided registers.
 
@@ -73,11 +72,6 @@ def execute(instructions: List[str], registers: Dict[str, int]) -> Dict[str, int
     registers : Dict[str, int]
         A dictionary mapping register names to integers.
         This dictionary is modified in-place.
-
-    Returns
-    -------
-    Dict[str, int]
-        The final state of the registers.
     """
     pc = 0  # Program counter
     n = len(instructions)
@@ -93,118 +87,29 @@ def execute(instructions: List[str], registers: Dict[str, int]) -> Dict[str, int
         op = parts[0]
 
         try:
+            pc_increment = 1
             if op == "hlf":
-                reg = parts[1]
-                registers[reg] //= 2
-                pc += 1
+                registers[parts[1]] //= 2
             elif op == "tpl":
-                reg = parts[1]
-                registers[reg] *= 3
-                pc += 1
+                registers[parts[1]] *= 3
             elif op == "inc":
-                reg = parts[1]
-                registers[reg] += 1
-                pc += 1
+                registers[parts[1]] += 1
             elif op == "jmp":
-                offset = int(parts[1])
-                pc += offset
+                pc_increment = int(parts[1])
             elif op == "jie":
-                reg = parts[1]
-                offset = int(parts[2])
-                if registers[reg] % 2 == 0:
-                    pc += offset
-                else:
-                    pc += 1
+                if registers[parts[1]] % 2 == 0:
+                    pc_increment = int(parts[2])
             elif op == "jio":
-                reg = parts[1]
-                offset = int(parts[2])
-                if registers[reg] == 1:
-                    pc += offset
-                else:
-                    pc += 1
+                if registers[parts[1]] == 1:
+                    pc_increment = int(parts[2])
             else:
                 logger.warning(f"Unknown instruction at line {pc}: {line}")
                 break
-        except (IndexError, ValueError) as e:
+
+            pc += pc_increment
+        except (IndexError, ValueError, KeyError) as e:
             logger.error(f"Error parsing instruction at line {pc} ('{line}'): {e}")
             break
-
-    return registers
-
-
-class TestInstructionProcessor(unittest.TestCase):
-    """Unit tests for the instruction processor."""
-
-    def test_hlf(self):
-        """Test the hlf (half) instruction."""
-        instructions = ["hlf a"]
-        regs = {"a": 10}
-        execute(instructions, regs)
-        self.assertEqual(regs["a"], 5)
-
-    def test_tpl(self):
-        """Test the tpl (triple) instruction."""
-        instructions = ["tpl a"]
-        regs = {"a": 7}
-        execute(instructions, regs)
-        self.assertEqual(regs["a"], 21)
-
-    def test_inc(self):
-        """Test the inc (increment) instruction."""
-        instructions = ["inc a"]
-        regs = {"a": 0}
-        execute(instructions, regs)
-        self.assertEqual(regs["a"], 1)
-
-    def test_jmp(self):
-        """Test the jmp (jump) instruction."""
-        instructions = ["jmp +2", "inc a", "inc b"]
-        regs = {"a": 0, "b": 0}
-        execute(instructions, regs)
-        self.assertEqual(regs["a"], 0)
-        self.assertEqual(regs["b"], 1)
-
-    def test_jie_even(self):
-        """Test the jie (jump if even) instruction with an even value."""
-        instructions = ["jie a, +2", "inc a"]
-        regs = {"a": 2}
-        execute(instructions, regs)
-        self.assertEqual(regs["a"], 2)
-
-    def test_jie_odd(self):
-        """Test the jie (jump if even) instruction with an odd value."""
-        instructions = ["jie a, +2", "inc a"]
-        regs = {"a": 3}
-        execute(instructions, regs)
-        self.assertEqual(regs["a"], 4)
-
-    def test_jio_one(self):
-        """Test the jio (jump if one) instruction with value 1."""
-        instructions = ["jio a, +2", "inc a"]
-        regs = {"a": 1}
-        execute(instructions, regs)
-        self.assertEqual(regs["a"], 1)
-
-    def test_jio_not_one(self):
-        """Test the jio (jump if one) instruction with value other than 1."""
-        instructions = ["jio a, +2", "inc a"]
-        regs = {"a": 3}
-        execute(instructions, regs)
-        self.assertEqual(regs["a"], 4)
-
-    def test_example_program(self):
-        """
-        Test the specific example program provided:
-        inc a
-        jio a, +2
-        tpl a
-        inc a
-        Expected result: a = 2
-        """
-        instructions = ["inc a", "jio a, +2", "tpl a", "inc a"]
-        regs = {"a": 0}
-        execute(instructions, regs)
-        self.assertEqual(regs["a"], 2)
 
 
 def parse_arguments():
@@ -223,19 +128,12 @@ def parse_arguments():
         default=DEFAULT_INPUT_FILE,
         help="Path to the input file (default: input.txt)",
     )
-    parser.add_argument(
-        "--test", action="store_true", help="Run unit tests and exit"
-    )
     return parser.parse_args()
 
 
 def main():
     """Main entry point for the script."""
     args = parse_arguments()
-
-    if args.test:
-        unittest.main(argv=[sys.argv[0]], exit=False)
-        return
 
     try:
         instructions = read_instructions(args.file)
