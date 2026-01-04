@@ -12,7 +12,18 @@ import heapq
 import sys
 import argparse
 import unittest
-from typing import Dict, Tuple
+from typing import Dict, Tuple, NamedTuple
+
+
+class GameState(NamedTuple):
+    """
+    Represents the state of the game at a given point.
+    NamedTuple is used to ensure it is hashable for use as a dictionary key.
+    """
+    player_hp: int
+    player_mana: int
+    boss_hp: int
+    active_effects: Tuple[Tuple[str, int], ...]
 
 
 class Spell:
@@ -25,6 +36,9 @@ class Spell:
         damage (int): Instant damage dealt.
         heal (int): Instant healing for the player.
         duration (int): Number of rounds the effect lasts.
+        effect_armor (int): Armor provided each round the effect is active.
+        effect_damage (int): Damage dealt each round the effect is active.
+        effect_mana (int): Mana provided each round the effect is active.
     """
 
     def __init__(
@@ -34,143 +48,124 @@ class Spell:
         damage: int = 0,
         heal: int = 0,
         duration: int = 0,
+        effect_armor: int = 0,
+        effect_damage: int = 0,
+        effect_mana: int = 0,
     ):
         self.name = name
         self.cost = cost
         self.damage = damage
         self.heal = heal
         self.duration = duration
+        self.effect_armor = effect_armor
+        self.effect_damage = effect_damage
+        self.effect_mana = effect_mana
 
-
-class Character:
-    """
-    Represents both the player and the boss.
-
-    Attributes:
-        name (str): Name of the character.
-        hp (int): Hit points.
-        mana (int): Current mana.
-        damage (int): Damage dealt by attacks.
-    """
-
-    def __init__(self, name: str, hp: int, mana: int = 0, damage: int = 0):
-        self.name = name
-        self.hp = hp
-        self.mana = mana
-        self.damage = damage
 
 
 # Define official spells
 MAGIC_MISSILE = Spell("Magic Missile", 53, damage=4)
 DRAIN = Spell("Drain", 73, damage=2, heal=2)
-SHIELD = Spell("Shield", 113, duration=6)
-POISON = Spell("Poison", 173, duration=6)
-RECHARGE = Spell("Recharge", 229, duration=5)
+SHIELD = Spell("Shield", 113, duration=6, effect_armor=7)
+POISON = Spell("Poison", 173, duration=6, effect_damage=3)
+RECHARGE = Spell("Recharge", 229, duration=5, effect_mana=101)
 
 SPELLS = [MAGIC_MISSILE, DRAIN, SHIELD, POISON, RECHARGE]
+SPELL_MAP = {spell.name: spell for spell in SPELLS}
 
 
-def apply_effects(
-    p_hp: int, p_mana: int, b_hp: int, effects: Dict[str, int]
-) -> Tuple[int, int, int, Dict[str, int], int]:
+def apply_effects(state: GameState) -> Tuple[GameState, int]:
     """
     Iterates any active spells effects at the start of each turn.
 
     Args:
-        p_hp: Player hit points.
-        p_mana: Player mana.
-        b_hp: Boss hit points.
-        effects: Dictionary of active spell effects and their remaining durations.
+        state: The current GameState.
 
     Returns:
-        Tuple containing updated p_hp, p_mana, b_hp, new_effects, and p_armor.
+        Tuple containing updated GameState and current player armor.
     """
+    p_hp = state.player_hp
+    p_mana = state.player_mana
+    b_hp = state.boss_hp
+    new_effects_list = []
     p_armor = 0
-    new_effects = {}
 
-    # Shield effect
-    if "Shield" in effects:
-        p_armor = 7
-        if effects["Shield"] > 1:
-            new_effects["Shield"] = effects["Shield"] - 1
+    for spell_name, timer in state.active_effects:
+        spell = SPELL_MAP[spell_name]
+        
+        # Apply per-turn effects
+        p_armor += spell.effect_armor
+        b_hp -= spell.effect_damage
+        p_mana += spell.effect_mana
 
-    # Poison effect
-    if "Poison" in effects:
-        b_hp -= 3
-        if effects["Poison"] > 1:
-            new_effects["Poison"] = effects["Poison"] - 1
+        # Decrement timer and keep if active
+        if timer > 1:
+            new_effects_list.append((spell_name, timer - 1))
 
-    # Recharge effect
-    if "Recharge" in effects:
-        p_mana += 101
-        if effects["Recharge"] > 1:
-            new_effects["Recharge"] = effects["Recharge"] - 1
-
-    return p_hp, p_mana, b_hp, new_effects, p_armor
+    return GameState(p_hp, p_mana, b_hp, tuple(new_effects_list)), p_armor
 
 
 def simulate_round(
-    p_hp: int,
-    p_mana: int,
-    b_hp: int,
-    effects_tuple: Tuple[Tuple[str, int], ...],
+    state: GameState,
     spell: Spell,
     boss_damage: int,
     hard_mode: bool = False,
-) -> Tuple[bool, int, int, int, Dict[str, int], int]:
+) -> Tuple[bool, GameState, int]:
     """
     Simulates a player turn and a boss turn.
 
     Args:
-        p_hp: Player HP.
-        p_mana: Player mana.
-        b_hp: Boss HP.
-        effects_tuple: Tuple of (spell_name, duration) pairs.
+        state: The starting GameState.
         spell: The spell the player chooses to cast.
         boss_damage: The base damage of the boss.
         hard_mode: Whether the simulation is in hard mode.
 
     Returns:
-        Tuple: (win_flag, res_p_hp, res_p_mana, res_b_hp, res_effects, status)
+        Tuple: (win_flag, resulting_state, status)
         status: 0 for continue, -1 for loss.
     """
-    effects = dict(effects_tuple)
-
     # --- PLAYER TURN ---
+    p_hp = state.player_hp
     if hard_mode:
         p_hp -= 1
         if p_hp <= 0:
-            return False, 0, 0, 0, {}, -1
+            return False, state, -1
 
-    p_hp, p_mana, b_hp, effects, p_armor = apply_effects(p_hp, p_mana, b_hp, effects)
-    if b_hp <= 0:
-        return True, p_hp, p_mana, b_hp, effects, 0
+    state = state._replace(player_hp=p_hp)
+    state, p_armor = apply_effects(state)
+    
+    if state.boss_hp <= 0:
+        return True, state, 0
 
     # Cast spell
-    p_mana -= spell.cost
-    next_p_hp = p_hp + spell.heal
-    next_b_hp = b_hp - spell.damage
+    p_mana = state.player_mana - spell.cost
+    p_hp = state.player_hp + spell.heal
+    b_hp = state.boss_hp - spell.damage
+    
+    new_effects = dict(state.active_effects)
     if spell.duration > 0:
-        effects[spell.name] = spell.duration
+        new_effects[spell.name] = spell.duration
 
-    if next_b_hp <= 0:
-        return True, next_p_hp, p_mana, next_b_hp, effects, 0
+    state = GameState(p_hp, p_mana, b_hp, tuple(sorted(new_effects.items())))
+
+    if state.boss_hp <= 0:
+        return True, state, 0
 
     # --- BOSS TURN ---
-    b_p_hp, b_p_mana, b_b_hp, b_effects, b_p_armor = apply_effects(
-        next_p_hp, p_mana, next_b_hp, effects
-    )
-    if b_b_hp <= 0:
-        return True, b_p_hp, b_p_mana, b_b_hp, b_effects, 0
+    state, b_p_armor = apply_effects(state)
+    if state.boss_hp <= 0:
+        return True, state, 0
 
     # Boss attack
     damage = max(1, boss_damage - b_p_armor)
-    b_p_hp -= damage
+    p_hp = state.player_hp - damage
 
-    if b_p_hp <= 0:
-        return False, 0, 0, 0, {}, -1
+    state = state._replace(player_hp=p_hp)
 
-    return False, b_p_hp, b_p_mana, b_b_hp, b_effects, 0
+    if state.player_hp <= 0:
+        return False, state, -1
+
+    return False, state, 0
 
 
 def find_min_mana(boss_hp: int, boss_damage: int, hard_mode: bool = False) -> int:
@@ -185,44 +180,39 @@ def find_min_mana(boss_hp: int, boss_damage: int, hard_mode: bool = False) -> in
     Returns:
         The minimum mana required to win.
     """
-    # Priority Queue: (mana_spent, p_hp, p_mana, b_hp, effects_tuple)
-    pq = [(0, 50, 500, boss_hp, ())]
+    # Priority Queue: (mana_spent, GameState)
+    initial_state = GameState(50, 500, boss_hp, ())
+    pq = [(0, initial_state)]
     visited = {}
 
     while pq:
-        mana_spent, p_hp, p_mana, b_hp, effects_tuple = heapq.heappop(pq)
+        mana_spent, current_state = heapq.heappop(pq)
 
-        state = (p_hp, p_mana, b_hp, effects_tuple)
-        if state in visited and visited[state] <= mana_spent:
+        if current_state in visited and visited[current_state] <= mana_spent:
             continue
-        visited[state] = mana_spent
+        visited[current_state] = mana_spent
 
         # Peek turn to see what can be cast after start-of-turn effects
-        trial_p_hp = p_hp
+        temp_hp = current_state.player_hp
         if hard_mode:
-            trial_p_hp -= 1
-            if trial_p_hp <= 0:
+            temp_hp -= 1
+            if temp_hp <= 0:
                 continue
 
-        trial_p_hp, trial_p_mana, trial_b_hp, trial_effects, _ = apply_effects(
-            trial_p_hp, p_mana, b_hp, dict(effects_tuple)
-        )
+        peek_state, _ = apply_effects(current_state._replace(player_hp=temp_hp))
 
-        if trial_b_hp <= 0:
+        if peek_state.boss_hp <= 0:
             return mana_spent
 
+        active_effect_names = {name for name, _ in peek_state.active_effects}
+
         for spell in SPELLS:
-            if trial_p_mana >= spell.cost and spell.name not in trial_effects:
-                win, res_p_hp, res_p_mana, res_b_hp, res_effects, status = (
-                    simulate_round(
-                        p_hp,
-                        p_mana,
-                        b_hp,
-                        effects_tuple,
-                        spell,
-                        boss_damage,
-                        hard_mode,
-                    )
+            if peek_state.player_mana >= spell.cost and spell.name not in active_effect_names:
+                win, next_state, status = simulate_round(
+                    current_state,
+                    spell,
+                    boss_damage,
+                    hard_mode,
                 )
 
                 new_mana_spent = mana_spent + spell.cost
@@ -230,19 +220,8 @@ def find_min_mana(boss_hp: int, boss_damage: int, hard_mode: bool = False) -> in
                     return new_mana_spent
 
                 if status == 0:
-                    res_effects_tuple = tuple(sorted(res_effects.items()))
-                    new_state = (res_p_hp, res_p_mana, res_b_hp, res_effects_tuple)
-                    if new_state not in visited or visited[new_state] > new_mana_spent:
-                        heapq.heappush(
-                            pq,
-                            (
-                                new_mana_spent,
-                                res_p_hp,
-                                res_p_mana,
-                                res_b_hp,
-                                res_effects_tuple,
-                            ),
-                        )
+                    if next_state not in visited or visited[next_state] > new_mana_spent:
+                        heapq.heappush(pq, (new_mana_spent, next_state))
 
     return sys.maxsize
 
@@ -257,20 +236,21 @@ class TestWizardSimulator(unittest.TestCase):
         effects = ()
 
         # Turn 1: Poison
-        win, ph, pm, bh, effects, status = simulate_round(
-            p_hp, p_mana, b_hp, effects, POISON, b_damage
+        initial_state = GameState(p_hp, p_mana, b_hp, effects)
+        win, next_state, status = simulate_round(
+            initial_state, POISON, b_damage
         )
         self.assertFalse(win)
-        self.assertEqual(ph, 2)
-        self.assertEqual(pm, 77)
-        self.assertEqual(bh, 10)
+        self.assertEqual(next_state.player_hp, 2)
+        self.assertEqual(next_state.player_mana, 77)
+        self.assertEqual(next_state.boss_hp, 10)
 
         # Turn 2: Magic Missile
-        win, ph, pm, bh, effects, status = simulate_round(
-            ph, pm, bh, tuple(sorted(effects.items())), MAGIC_MISSILE, b_damage
+        win, next_state, status = simulate_round(
+            next_state, MAGIC_MISSILE, b_damage
         )
         self.assertTrue(win)
-        self.assertEqual(bh, 0)
+        self.assertEqual(next_state.boss_hp, 0)
 
     def test_scenario_2(self):
         """Test a complex scenario involving Recharge and Shield."""
@@ -279,28 +259,29 @@ class TestWizardSimulator(unittest.TestCase):
         effects = ()
 
         # Turn 1: Recharge
-        win, ph, pm, bh, effects, status = simulate_round(
-            p_hp, p_mana, b_hp, effects, RECHARGE, b_damage
+        initial_state = GameState(p_hp, p_mana, b_hp, effects)
+        win, next_state, status = simulate_round(
+            initial_state, RECHARGE, b_damage
         )
         self.assertFalse(win)
-        self.assertEqual(ph, 2)
-        self.assertEqual(pm, 122)
+        self.assertEqual(next_state.player_hp, 2)
+        self.assertEqual(next_state.player_mana, 122)
 
         # Turn 2: Shield
-        win, ph, pm, bh, effects, status = simulate_round(
-            ph, pm, bh, tuple(sorted(effects.items())), SHIELD, b_damage
+        win, next_state, status = simulate_round(
+            next_state, SHIELD, b_damage
         )
         self.assertFalse(win)
-        self.assertEqual(ph, 1)
-        self.assertEqual(pm, 211)
+        self.assertEqual(next_state.player_hp, 1)
+        self.assertEqual(next_state.player_mana, 211)
 
         # Turn 3: Drain
-        win, ph, pm, bh, effects, status = simulate_round(
-            ph, pm, bh, tuple(sorted(effects.items())), DRAIN, b_damage
+        win, next_state, status = simulate_round(
+            next_state, DRAIN, b_damage
         )
         self.assertFalse(win)
-        self.assertEqual(ph, 2)
-        self.assertEqual(pm, 340)
+        self.assertEqual(next_state.player_hp, 2)
+        self.assertEqual(next_state.player_mana, 340)
 
 
 def main():
