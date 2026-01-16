@@ -10,6 +10,7 @@ A visual firework simulation built with Python and Pygame featuring realistic ph
 - 🔊 **Sound effects**: Procedurally generated launch and explosion sounds
 - 📊 **Performance monitoring**: Real-time FPS counter
 - 🎮 **Intuitive controls**: Simple keyboard interface
+- ⏸️ **Pause/Unpause**: Press P to freeze and resume the simulation
 
 ## Requirements
 
@@ -35,6 +36,7 @@ python3 fireworks.py
 ### Controls
 
 - **SPACE**: Launch a firework
+- **P**: Pause/Unpause the simulation
 - **ESC or Q**: Quit the simulation
 
 ## How It Works

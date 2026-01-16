@@ -452,6 +452,7 @@ def main():
     running = True
     fireworks = []
     waiting_for_input = True
+    paused = False
 
     print("Firework Simulation Started!")
     print("Press SPACE to launch a firework, or ESC/Q to quit.")
@@ -469,15 +470,20 @@ def main():
                     running = False
                 elif event.key == pygame.K_SPACE:
                     # Launch a new firework
-                    firework = Firework()
-                    fireworks.append(firework)
-                    waiting_for_input = False
-                    print(f"Firework launched! (Total: {len(fireworks)})")
+                    if not paused:
+                        firework = Firework()
+                        fireworks.append(firework)
+                        waiting_for_input = False
+                        print(f"Firework launched! (Total: {len(fireworks)})")
+                elif event.key == pygame.K_p:
+                    paused = not paused
+                    print("Simulation " + ("Paused" if paused else "Resumed"))
 
-        # Update all fireworks and keep only unfinished ones (more efficient than remove())
-        for firework in fireworks:
-            firework.update()
-        fireworks = [f for f in fireworks if not f.is_finished()]
+        if not paused:
+            # Update all fireworks and keep only unfinished ones (more efficient than remove())
+            for firework in fireworks:
+                firework.update()
+            fireworks = [f for f in fireworks if not f.is_finished()]
 
         # Draw everything
         screen.fill(BLACK)
@@ -496,6 +502,17 @@ def main():
                 HEIGHT // 2 - 20,
             )
 
+        # Draw paused message
+        if paused:
+            draw_text(
+                screen,
+                "PAUSED",
+                72,
+                WIDTH // 2,
+                HEIGHT // 2,
+                (255, 100, 100)
+            )
+
         # Draw permanent controls footer with semi-transparent background
         footer_surface = pygame.Surface((WIDTH, FOOTER_HEIGHT), pygame.SRCALPHA)
         footer_surface.fill((0, 0, 0, FOOTER_ALPHA))
@@ -511,7 +528,7 @@ def main():
         # Draw control instructions in the center
         draw_text(
             screen,
-            "SPACE: Launch Firework  |  ESC/Q: Quit",
+            "SPACE: Launch  |  P: Pause/Unpause  |  ESC/Q: Quit",
             24,
             WIDTH // 2,
             HEIGHT - FOOTER_HEIGHT // 2,
